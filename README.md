@@ -4,9 +4,9 @@
 [![Docker Pulls][badge-docker]][link-docker]
 [![GitHub Release][badge-release]][link-release]
 
-| ![login](screenshots/login.png) | ![devices](screenshots/devices.png) |
-| --- | --- |
-| ![whitelist](screenshots/whitelist.png) | ![config](screenshots/config.png) |
+| ![login][screen-login] | ![devices][screen-devices]                                                                           |
+| --- |------------------------------------------------------------------------------------------------------|
+| ![whitelist][screen-whitelist] | ![config][screen-config] |
 
 SponsorBlockTV Web is a self-hosted companion for YouTube TV clients. It pairs
 with your TV app and automatically skips SponsorBlock segments (sponsors,
@@ -160,4 +160,8 @@ Use manual pairing or exposed ports on macOS/Windows.
 [lib-rich]: https://github.com/Textualize/rich
 [lib-rich-click]: https://github.com/ewels/rich-click
 [lib-appdirs]: https://github.com/ActiveState/appdirs
+[screen-login]: https://raw.githubusercontent.com/NikoVonLas/SponsorBlockTV-Web/refs/heads/master/screenshots/login.png
+[screen-devices]: https://raw.githubusercontent.com/NikoVonLas/SponsorBlockTV-Web/refs/heads/master/screenshots/devices.png
+[screen-whitelist]: https://raw.githubusercontent.com/NikoVonLas/SponsorBlockTV-Web/refs/heads/master/screenshots/whitelist.png
+[screen-config]: https://raw.githubusercontent.com/NikoVonLas/SponsorBlockTV-Web/refs/heads/master/screenshots/config.png
 <!-- markdownlint-enable MD013 -->
