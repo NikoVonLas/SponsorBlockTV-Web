@@ -4,6 +4,10 @@
 [![Docker Pulls][badge-docker]][link-docker]
 [![GitHub Release][badge-release]][link-release]
 
+| ![login](screenshots/login.png) | ![devices](screenshots/devices.png) |
+| --- | --- |
+| ![whitelist](screenshots/whitelist.png) | ![config](screenshots/config.png) |
+
 SponsorBlockTV Web is a self-hosted companion for YouTube TV clients. It pairs
 with your TV app and automatically skips SponsorBlock segments (sponsors,
 intros, self-promo, etc.), presses "Skip Ad" as soon as possible, and can mute
@@ -138,11 +142,11 @@ Use manual pairing or exposed ports on macOS/Windows.
 [![GNU GPLv3](https://www.gnu.org/graphics/gplv3-127x51.png)](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
 <!-- markdownlint-disable MD013 -->
-[badge-ghcr]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2FNikoVonLas04%2FSponsorBlockTV-Web%2Fsponsorblocktv-web.json&query=downloads&logo=github&label=ghcr.io%20pulls&style=flat
-[badge-docker]: https://img.shields.io/docker/pulls/NikoVonLas/SponsorBlockTV-Web?logo=docker&style=flat
+[badge-ghcr]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2FNikoVonLas%2FSponsorBlockTV-Web%2Fsponsorblocktv-web.json&query=downloads&logo=github&label=ghcr.io%20pulls&style=flat
+[badge-docker]: https://img.shields.io/docker/pulls/nikovonlas/sponsorblocktv-web?logo=docker&style=flat
 [badge-release]: https://img.shields.io/github/v/release/NikoVonLas/SponsorBlockTV-Web?logo=GitHub&style=flat
-[link-ghcr]: https://ghcr.io/NikoVonLas/SponsorBlockTV-Web
-[link-docker]: https://hub.docker.com/r/NikoVonLas/SponsorBlockTV-Web/
+[link-ghcr]: https://ghcr.io/NikoVonLas/sponsorblocktv-web
+[link-docker]: https://hub.docker.com/r/nikovonlas/sponsorblocktv-web/
 [link-release]: https://github.com/NikoVonLas/SponsorBlockTV-Web/releases/latest
 [lib-pyytlounge]: https://github.com/FabioGNR/pyytlounge
 [lib-aiohttp]: https://github.com/aio-libs/aiohttp
