@@ -159,3 +159,4 @@ data/config.json
 
 .DS_Store
 .pnpm-store
+.idea
