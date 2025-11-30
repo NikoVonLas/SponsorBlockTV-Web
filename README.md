@@ -65,7 +65,7 @@ unavailable.
   directory is missing.
 - `SBTV_ENABLE_SERVICE` / `SBTV_ENABLE_API` (both default `True`) — toggle the
   automation loop or API server when running inside Docker.
-- `SBTV_API_HOST` / `SBTV_API_PORT` (defaults `0.0.0.0:8000`) — bind address and
+- `SBTV_API_HOST` / `SBTV_API_PORT` (defaults `0.0.0.0:80`) — bind address and
   port for the API.
 - `SBTV_DEBUG` / `SBTV_HTTP_TRACING` (defaults `False`) — enable verbose logging
   or aiohttp request tracing.
@@ -98,7 +98,7 @@ as the REST API. Useful commands:
 
 ```bash
 sponsorblocktv-web --data ./data start          # run automation service
-sponsorblocktv-web --data ./data api            # run Litestar API (default 8000)
+sponsorblocktv-web --data ./data api            # run Litestar API (default 80)
 sponsorblocktv-web --help                       # see all CLI flags/options
 ```
 
