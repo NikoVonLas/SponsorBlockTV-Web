@@ -34,7 +34,7 @@ Notes:
 
 - The compose file defaults to `network_mode: host` so SSDP discovery works. On
   macOS/Windows (or if you don’t need multicast) remove that line and add
-  `ports: ["8000:8000"]`.
+  `ports: ["80:8000"]`.
 - Configuration lives in the `sbtv_data` named volume. Swap it for a bind mount
   (e.g., `- ./data:/app/data`) if you want files on the host filesystem.
 
@@ -54,7 +54,7 @@ docker run -d \
   ghcr.io/dmunozv04/sponsorblocktv-web:latest
 ```
 
-Use `-p 8000:8000` instead of `--network host` if host networking is
+Use `-p 80:8000` instead of `--network host` if host networking is
 unavailable.
 
 ### Environment Variables
