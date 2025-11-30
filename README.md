@@ -160,8 +160,8 @@ Use manual pairing or exposed ports on macOS/Windows.
 [lib-rich]: https://github.com/Textualize/rich
 [lib-rich-click]: https://github.com/ewels/rich-click
 [lib-appdirs]: https://github.com/ActiveState/appdirs
-[screen-login]: https://raw.githubusercontent.com/NikoVonLas/SponsorBlockTV-Web/refs/heads/master/screenshots/login.png
-[screen-devices]: https://raw.githubusercontent.com/NikoVonLas/SponsorBlockTV-Web/refs/heads/master/screenshots/devices.png
-[screen-whitelist]: https://raw.githubusercontent.com/NikoVonLas/SponsorBlockTV-Web/refs/heads/master/screenshots/whitelist.png
-[screen-config]: https://raw.githubusercontent.com/NikoVonLas/SponsorBlockTV-Web/refs/heads/master/screenshots/config.png
+[screen-login]: https://raw.githubusercontent.com/NikoVonLas/SponsorBlockTV-Web/refs/heads/main/screenshots/login.png
+[screen-devices]: https://raw.githubusercontent.com/NikoVonLas/SponsorBlockTV-Web/refs/heads/main/screenshots/devices.png
+[screen-whitelist]: https://raw.githubusercontent.com/NikoVonLas/SponsorBlockTV-Web/refs/heads/main/screenshots/whitelist.png
+[screen-config]: https://raw.githubusercontent.com/NikoVonLas/SponsorBlockTV-Web/refs/heads/main/screenshots/config.png
 <!-- markdownlint-enable MD013 -->
