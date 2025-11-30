@@ -10,6 +10,7 @@ import {
 } from "../api/hooks";
 import type { DeviceModel } from "../api/types";
 import { useTranslation } from "../i18n";
+import { Modal } from "../components/Modal";
 
 type DeviceFormState = {
   screen_id: string;
@@ -36,6 +37,7 @@ export const DevicesPage = () => {
   const [editForm, setEditForm] = useState<DeviceFormState>(emptyForm);
   const [pairCode, setPairCode] = useState("");
   const [pairName, setPairName] = useState("");
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const { t } = useTranslation();
 
   const handleAdd = (event: FormEvent<HTMLFormElement>) => {
@@ -43,7 +45,10 @@ export const DevicesPage = () => {
     addDevice.mutate(
       { ...newDevice, offset: Number(newDevice.offset) },
       {
-        onSuccess: () => setNewDevice(emptyForm),
+        onSuccess: () => {
+          setNewDevice(emptyForm);
+          setIsAddModalOpen(false);
+        },
       },
     );
   };
@@ -91,9 +96,10 @@ export const DevicesPage = () => {
   };
 
   return (
-    <div className="space-y-10">
-      <header>
-        <h1 className="text-2xl font-semibold">{t("devices.title")}</h1>
+    <>
+      <div className="space-y-10">
+        <header>
+          <h1 className="text-2xl font-semibold">{t("devices.title")}</h1>
         <p className="text-muted mt-1">{t("devices.subtitle")}</p>
       </header>
 
@@ -106,62 +112,6 @@ export const DevicesPage = () => {
             t("devices.error")}
         </div>
       )}
-
-      <section className="rounded-2xl border border-border bg-surface-100 p-6 space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold">{t("devices.addSection.title")}</h2>
-          <p className="text-sm text-muted">{t("devices.addSection.description")}</p>
-        </div>
-        <form className="grid gap-4 md:grid-cols-3" onSubmit={handleAdd}>
-          <label className="text-sm font-medium md:col-span-1">
-            {t("devices.addSection.screenId")}
-            <input
-              className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2"
-              value={newDevice.screen_id}
-              onChange={(event) =>
-                setNewDevice((prev) => ({ ...prev, screen_id: event.target.value }))
-              }
-              required
-            />
-          </label>
-          <label className="text-sm font-medium md:col-span-1">
-            {t("devices.addSection.name")}
-            <input
-              className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2"
-              value={newDevice.name}
-              onChange={(event) =>
-                setNewDevice((prev) => ({ ...prev, name: event.target.value }))
-              }
-            />
-          </label>
-          <label className="text-sm font-medium md:col-span-1">
-            {t("devices.addSection.offset")}
-            <input
-              type="number"
-              min={0}
-              className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2"
-              value={newDevice.offset}
-              onChange={(event) =>
-                setNewDevice((prev) => ({
-                  ...prev,
-                  offset: Number(event.target.value),
-                }))
-              }
-            />
-          </label>
-          <div className="md:col-span-3">
-            <button
-              type="submit"
-              className="rounded-lg bg-accent px-4 py-2 font-semibold text-white hover:bg-accent/90 disabled:opacity-60"
-              disabled={addDevice.isPending}
-            >
-              {addDevice.isPending
-                ? t("devices.addSection.submitting")
-                : t("devices.addSection.submit")}
-            </button>
-          </div>
-        </form>
-      </section>
 
       <section className="rounded-2xl border border-border bg-surface-100 p-6 space-y-6">
         <div>
@@ -216,16 +166,25 @@ export const DevicesPage = () => {
                 : t("devices.registered.count", { count: devices?.length ?? 0 })}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => discoverDevices.mutate()}
-            className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-surface-200"
-            disabled={discoverDevices.isPending}
-          >
-            {discoverDevices.isPending
-              ? t("devices.registered.discoverPending")
-              : t("devices.registered.discoverIdle")}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setIsAddModalOpen(true)}
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent/90 disabled:opacity-60"
+            >
+              {t("devices.addSection.submit")}
+            </button>
+            <button
+              type="button"
+              onClick={() => discoverDevices.mutate()}
+              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-surface-200"
+              disabled={discoverDevices.isPending}
+            >
+              {discoverDevices.isPending
+                ? t("devices.registered.discoverPending")
+                : t("devices.registered.discoverIdle")}
+            </button>
+          </div>
         </div>
 
         {discoverDevices.data && discoverDevices.data.length > 0 && (
@@ -358,5 +317,65 @@ export const DevicesPage = () => {
         )}
       </section>
     </div>
+
+      {isAddModalOpen && (
+        <Modal
+          title={t("devices.addSection.title")}
+          onClose={() => setIsAddModalOpen(false)}
+          closeLabel={t("common.close")}
+        >
+          <p className="text-sm text-muted">{t("devices.addSection.description")}</p>
+          <form className="mt-4 space-y-4" onSubmit={handleAdd}>
+            <label className="text-sm font-medium">
+              {t("devices.addSection.screenId")}
+              <input
+                className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2"
+                value={newDevice.screen_id}
+                onChange={(event) =>
+                  setNewDevice((prev) => ({ ...prev, screen_id: event.target.value }))
+                }
+                required
+              />
+            </label>
+            <label className="text-sm font-medium">
+              {t("devices.addSection.name")}
+              <input
+                className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2"
+                value={newDevice.name}
+                onChange={(event) =>
+                  setNewDevice((prev) => ({ ...prev, name: event.target.value }))
+                }
+              />
+            </label>
+            <label className="text-sm font-medium">
+              {t("devices.addSection.offset")}
+              <input
+                type="number"
+                min={0}
+                className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2"
+                value={newDevice.offset}
+                onChange={(event) =>
+                  setNewDevice((prev) => ({
+                    ...prev,
+                    offset: Number(event.target.value),
+                  }))
+                }
+              />
+            </label>
+            <div className="pt-2">
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-accent px-4 py-2 font-semibold text-white hover:bg-accent/90 disabled:opacity-60"
+                disabled={addDevice.isPending}
+              >
+                {addDevice.isPending
+                  ? t("devices.addSection.submitting")
+                  : t("devices.addSection.submit")}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </>
   );
 };

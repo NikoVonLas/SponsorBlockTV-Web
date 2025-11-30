@@ -82,8 +82,8 @@ class Config:
             sys.exit()
         if not self.devices:
             print(
-                "No devices found yet. Add one via the API, Textual setup wizard, or the frontend UI "
-                "and the service will connect automatically."
+                "No devices found yet. Add one via the API or the frontend UI and the service "
+                "will connect automatically."
             )
             self.devices = []
         else:
@@ -232,9 +232,7 @@ class Config:
     def save(self):
         with closing(self._connect()) as conn:
             self._ensure_tables(conn)
-            settings_payload = [
-                (key, json.dumps(getattr(self, key))) for key in self.SETTINGS_KEYS
-            ]
+            settings_payload = [(key, json.dumps(getattr(self, key))) for key in self.SETTINGS_KEYS]
             conn.executemany(
                 """
                 INSERT INTO settings(key, value)
@@ -279,7 +277,9 @@ class Config:
         return {
             "devices": [
                 {
-                    "screen_id": getattr(d, "screen_id", d.get("screen_id") if isinstance(d, dict) else ""),
+                    "screen_id": getattr(
+                        d, "screen_id", d.get("screen_id") if isinstance(d, dict) else ""
+                    ),
                     "name": getattr(d, "name", d.get("name") if isinstance(d, dict) else ""),
                     "offset": (
                         int(float(getattr(d, "offset", 0)) * 1000)
@@ -406,6 +406,7 @@ def cli(
 
     if ctx.invoked_subcommand is None:
         ctx.invoke(start)
+
 
 @cli.command()
 @click.pass_context

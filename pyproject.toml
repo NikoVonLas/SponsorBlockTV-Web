@@ -7,7 +7,7 @@ authors = [
 ]
 description = "SponsorBlock Web client for all YouTube TV apps"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.9,<3.13"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
@@ -29,11 +29,11 @@ include = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/dmunozv04/SponsorBlockTV-Web"
-"Bug Tracker" = "https://github.com/dmunozv04/SponsorBlockTV-Web/issues"
+"Homepage" = "https://github.com/NikoVonLas/SponsorBlockTV-Web"
+"Bug Tracker" = "https://github.com/NikoVonLas/SponsorBlockTV-Web/issues"
 
 [project.scripts]
-"sponsorblocktv-web" = "sponsorblocktv_web.__main__:main"
+"SponsorBlockTV Web" = "sponsorblocktv_web.__main__:main"
 
 [build-system]
 requires = ["hatchling", "hatch-requirements-txt"]

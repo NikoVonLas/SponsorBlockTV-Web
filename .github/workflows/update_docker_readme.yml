@@ -26,5 +26,5 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: dmunozv04/isponsorblocktv
+          repository: NikoVonLas/SponsorBlockTV-Web
           short-description: ${{ github.event.repository.description }}

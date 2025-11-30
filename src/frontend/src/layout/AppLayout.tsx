@@ -55,7 +55,7 @@ export const AppLayout = () => {
           </button>
         </div>
       </aside>
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col max-w-[100vw]">
         <header className="border-b border-border bg-surface-200 px-3 sm:px-4 py-3 flex items-center justify-between md:hidden">
           <button
             type="button"

@@ -22,7 +22,6 @@ from litestar.middleware.base import DefineMiddleware
 from litestar.openapi import OpenAPIConfig
 from litestar.openapi.plugins import SwaggerRenderPlugin
 from litestar.openapi.spec import Components, SecurityScheme, Server
-from litestar.response import Response
 from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 from litestar.params import Parameter
 from pydantic import BaseModel, Field, field_validator
@@ -74,6 +73,7 @@ OPENAPI_CONFIG = OpenAPIConfig(
 
 _FRONTEND_DIST: Path | None = None
 
+
 def api_get(path: str, **kwargs):
     return get(f"{API_PREFIX}{path}", **kwargs)
 
@@ -92,6 +92,7 @@ def api_put(path: str, **kwargs):
 
 def api_delete(path: str, **kwargs):
     return delete(f"{API_PREFIX}{path}", **kwargs)
+
 
 @dataclass(frozen=True)
 class AuthSettings:
@@ -197,6 +198,7 @@ class FrontendApp:
         ]
         await send({"type": "http.response.start", "status": 200, "headers": headers})
         await send({"type": "http.response.body", "body": body})
+
 
 def _get_auth_settings() -> AuthSettings:
     username = os.getenv(AUTH_USERNAME_ENV, DEFAULT_USERNAME)
@@ -580,7 +582,7 @@ class ApiState:
             await lounge_controller.change_web_session(self._session)
             try:
                 paired = await lounge_controller.pair(int(pairing_code))
-            except Exception as exc:  # noqa: BLE001 - broad to mirror wizard behaviour
+            except Exception as exc:  # noqa: BLE001 - broad to match CLI behaviour
                 raise ValueError("Pairing request failed") from exc
             if not paired:
                 raise ValueError("Invalid pairing code")
@@ -632,9 +634,9 @@ async def root_status() -> dict[str, Any]:
         "docs_url": SCHEMA_PATH,
     }
     if not frontend_available:
-        response[
-            "hint"
-        ] = "Build the React UI (pnpm build in src/frontend) or set SBTV_FRONTEND_DIST to the dist path."
+        response["hint"] = (
+            "Build the React UI (pnpm build in src/frontend) or set SBTV_FRONTEND_DIST to the dist path."
+        )
     return response
 
 
@@ -647,6 +649,7 @@ async def api_root() -> dict[str, str]:
         "login_url": LOGIN_PATH,
     }
     return response
+
 
 @api_get("/config", tags=["Config"])
 async def get_config(request: Request) -> ConfigResponse:
@@ -861,8 +864,6 @@ async def search_channels(
         ]
 
     return await state.with_api_helper(search)
-
-
 
 
 def create_app(data_dir: str, *, debug: bool = False) -> Litestar | FrontendApp:
