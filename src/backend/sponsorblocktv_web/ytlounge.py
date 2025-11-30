@@ -22,7 +22,7 @@ class YtLoungeApi(pyytlounge.YtLoungeApi):
         api_helper=None,
         logger=None,
     ):
-        super().__init__(config.join_name if config else "iSponsorBlockTV", logger=logger)
+        super().__init__(config.join_name if config else "SponsorBlockTV Web", logger=logger)
         self.auth.screen_id = screen_id
         self.auth.lounge_id_token = None
         self.api_helper = api_helper
@@ -335,7 +335,7 @@ class YtLoungeApi(pyytlounge.YtLoungeApi):
             try:
                 await resp.text()
                 self.logger.error(
-                    "Connected as screen: please force close the app on the device for iSponsorBlockTV to work properly"
+                    "Connected as screen: please force close the app on the device for SponsorBlockTV Web to work properly"
                 )
                 self.logger.warn("Exiting in 5 seconds")
                 await asyncio.sleep(5)

@@ -17,7 +17,7 @@ class DeviceListener:
         self.offset = device.offset
         self.name = device.name
         self.cancelled = False
-        self.logger = logging.getLogger(f"iSponsorBlockTV-{device.screen_id}")
+        self.logger = logging.getLogger(f"SponsorBlockTVWeb-{device.screen_id}")
         self.web_session = web_session
         self.lounge_controller = ytlounge.YtLoungeApi(
             device.screen_id, config, api_helper, self.logger
@@ -152,7 +152,6 @@ async def finish(devices, web_session, tcp_connector):
 
 def handle_signal(signum, frame):
     raise KeyboardInterrupt()
-
 
 async def main_async(config, debug, http_tracing):
     loop = asyncio.get_event_loop_policy().get_event_loop()

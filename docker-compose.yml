@@ -1,7 +1,15 @@
 services:
-  iSponsorBlockTV:
-    image: ghcr.io/dmunozv04/isponsorblocktv
-    container_name: iSponsorBlockTV
+  sponsorblocktv-web:
+    build:
+      context: .
+    container_name: sponsorblocktv-web
+    environment:
+      SBTV_ENABLE_DOCS: true
+    ports:
+      - 80:8000
     restart: unless-stopped
     volumes:
-      - /PATH_TO_YOUR_DATA_DIR:/app/data
+      - sbtv_data:/app/data
+
+volumes:
+  sbtv_data: {}

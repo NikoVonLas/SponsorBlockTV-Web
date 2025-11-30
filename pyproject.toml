@@ -1,10 +1,11 @@
 [project]
-name = "iSponsorBlockTV"
-version = "2.6.1"
+name = "sponsorblocktv-web"
+version = "1.0.0"
 authors = [
-    {"name" = "dmunozv04"}
+    {"name" = "dmunozv04"},
+    {"name" = "nikovonlas"}
 ]
-description = "SponsorBlock client for all YouTube TV clients"
+description = "SponsorBlock Web client for all YouTube TV apps"
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
@@ -18,12 +19,24 @@ dynamic = ["dependencies"]
 [tool.hatch.metadata.hooks.requirements_txt]
 files = ["requirements.txt"]
 
+[tool.hatch.build.targets.wheel]
+packages = [
+    { include = "sponsorblocktv_web", from = "src/backend" },
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/backend/sponsorblocktv_web",
+    "src/backend/main.py",
+    "src/backend/run_container.py",
+]
+
 [project.urls]
-"Homepage" = "https://github.com/dmunozv04/iSponsorBlockTV"
-"Bug Tracker" = "https://github.com/dmunozv04/iSponsorBlockTV/issues"
+"Homepage" = "https://github.com/dmunozv04/SponsorBlockTV-Web"
+"Bug Tracker" = "https://github.com/dmunozv04/SponsorBlockTV-Web/issues"
 
 [project.scripts]
-"iSponsorBlockTV" = "iSponsorBlockTV.__main__:main"
+"sponsorblocktv-web" = "sponsorblocktv_web.__main__:main"
 
 [build-system]
 requires = ["hatchling", "hatch-requirements-txt"]
