@@ -59,24 +59,20 @@ unavailable.
 
 ### Environment Variables
 
-- `SBTV_DATA_DIR` (default `data`) — directory that stores `config.db` and
-  related files.
-- `SBTV_DOCKER` (default `False`) — suppress interactive prompts when the data
-  directory is missing.
-- `SBTV_ENABLE_SERVICE` / `SBTV_ENABLE_API` (both default `True`) — toggle the
-  automation loop or API server when running inside Docker.
-- `SBTV_API_HOST` / `SBTV_API_PORT` (defaults `0.0.0.0:80`) — bind address and
-  port for the API.
-- `SBTV_DEBUG` / `SBTV_HTTP_TRACING` (defaults `False`) — enable verbose logging
-  or aiohttp request tracing.
-- `SBTV_AUTH_USERNAME` / `SBTV_AUTH_PASSWORD` (defaults `admin`) — credentials
-  for `POST /api/auth/login`.
-- `SBTV_JWT_SECRET` (default `change-me`) — symmetric key for JWT signing.
-- `SBTV_JWT_EXPIRES_SECONDS` (default `3600`) — lifetime, in seconds, for issued
-  tokens.
-- `SBTV_ENABLE_DOCS` (default `False`) — expose `/docs` and `/api/schema`.
-- `SBTV_FRONTEND_DIST` (unset) — absolute path to the built React SPA when
-  running outside the packaged Docker image.
+<!-- markdownlint-disable MD013 -->
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SBTV_DATA_DIR` | `data` | Directory that stores `config.db` and related files. |
+| `SBTV_DOCKER` | `False` | Suppress interactive prompts when the data directory is missing. |
+| `SBTV_ENABLE_SERVICE` / `SBTV_ENABLE_API` | `True` | Toggle the automation loop or API server when running inside Docker. |
+| `SBTV_API_HOST` / `SBTV_API_PORT` | `0.0.0.0` / `80` | Bind address and port for the API. |
+| `SBTV_DEBUG` / `SBTV_HTTP_TRACING` | `False` | Enable verbose logging or aiohttp request tracing. |
+| `SBTV_AUTH_USERNAME` / `SBTV_AUTH_PASSWORD` | `admin` | Credentials for `POST /api/auth/login`. |
+| `SBTV_JWT_SECRET` | `change-me` | Symmetric key for JWT signing. |
+| `SBTV_JWT_EXPIRES_SECONDS` | `3600` | Lifetime (seconds) for issued tokens. |
+| `SBTV_ENABLE_DOCS` | `False` | Expose `/docs` and `/api/schema`. |
+| `SBTV_FRONTEND_DIST` | unset | Absolute path to the built React SPA when running outside Docker. |
+<!-- markdownlint-enable MD013 -->
 
 ## Usage
 

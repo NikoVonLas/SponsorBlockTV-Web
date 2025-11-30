@@ -351,7 +351,7 @@ def _env_bool(name: str, default: bool) -> bool:
 @click.option(
     "--api-port",
     type=int,
-    default=int(os.getenv("SBTV_API_PORT", "8000")),
+    default=int(os.getenv("SBTV_API_PORT", "80")),
     show_default=True,
     help="API bind port (SBTV_API_PORT).",
 )
@@ -431,7 +431,7 @@ def start(ctx):
 
 @cli.command()
 @click.option("--host", default="127.0.0.1", show_default=True, help="API bind address")
-@click.option("--port", default=8000, show_default=True, type=int, help="API bind port")
+@click.option("--port", default=80, show_default=True, type=int, help="API bind port")
 @click.pass_context
 def api(ctx, host, port):
     """Start the Litestar-based configuration API"""

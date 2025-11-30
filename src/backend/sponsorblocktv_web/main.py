@@ -260,6 +260,7 @@ async def monitor_devices(
     except asyncio.CancelledError:
         return
 
+
 async def main_async(config, debug, http_tracing):
     loop = asyncio.get_event_loop_policy().get_event_loop()
     if debug:
@@ -355,7 +356,7 @@ def _run_api_process() -> None:
 
     data_dir = _get_env("SBTV_DATA_DIR", "data")
     host = _get_env("SBTV_API_HOST", "0.0.0.0")
-    port = int(_get_env("SBTV_API_PORT", "8000"))
+    port = int(_get_env("SBTV_API_PORT", "80"))
     debug = _as_bool(_get_env("SBTV_DEBUG"), False)
 
     app = create_app(data_dir, debug=debug)
@@ -367,7 +368,9 @@ def main() -> None:
     enable_api = _as_bool(_get_env("SBTV_ENABLE_API"), True)
 
     if not (enable_service or enable_api):
-        print("Both SBTV_ENABLE_SERVICE and SBTV_ENABLE_API are disabled. Exiting.", file=sys.stderr)
+        print(
+            "Both SBTV_ENABLE_SERVICE and SBTV_ENABLE_API are disabled. Exiting.", file=sys.stderr
+        )
         sys.exit(1)
 
     processes: list[multiprocessing.Process] = []
