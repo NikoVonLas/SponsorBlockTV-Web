@@ -81,11 +81,13 @@ class Config:
             time.sleep(10)
             sys.exit()
         if not self.devices:
-            print("No devices found, please add at least one device")
-            print("Exiting in 10 seconds...")
-            time.sleep(10)
-            sys.exit()
-        self.devices = [Device(i) for i in self.devices]
+            print(
+                "No devices found yet. Add one via the API, Textual setup wizard, or the frontend UI "
+                "and the service will connect automatically."
+            )
+            self.devices = []
+        else:
+            self.devices = [Device(i) for i in self.devices]
         if not self.apikey and self.channel_whitelist:
             raise ValueError("No youtube API key found and channel whitelist is not empty")
         if not self.skip_categories:
@@ -300,6 +302,13 @@ class Config:
         }
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() not in {"", "0", "false", "no"}
+
+
 @click.group(invoke_without_command=True)
 @click.option(
     "--data",
@@ -307,23 +316,82 @@ class Config:
     default=lambda: os.getenv("SBTV_DATA_DIR") or user_data_dir("SponsorBlockTV Web", "dmunozv04"),
     help="data directory",
 )
-@click.option("--debug", is_flag=True, help="debug mode")
-@click.option("--http-tracing", is_flag=True, help="Enable HTTP request/response tracing")
-# legacy commands as arguments
-@click.option("--setup", is_flag=True, help="Setup the program graphically", hidden=True)
 @click.option(
-    "--setup-cli",
+    "--debug",
     is_flag=True,
-    help="Setup the program in the command line",
-    hidden=True,
+    default=_env_bool("SBTV_DEBUG", False),
+    show_default=True,
+    help="Enable verbose logging (default respects SBTV_DEBUG).",
 )
+@click.option(
+    "--http-tracing",
+    is_flag=True,
+    default=_env_bool("SBTV_HTTP_TRACING", False),
+    show_default=True,
+    help="Enable HTTP request/response tracing (SBTV_HTTP_TRACING).",
+)
+@click.option(
+    "--enable-service/--disable-service",
+    default=_env_bool("SBTV_ENABLE_SERVICE", True),
+    show_default=True,
+    help="Toggle the automation service loop (SBTV_ENABLE_SERVICE).",
+)
+@click.option(
+    "--enable-api/--disable-api",
+    default=_env_bool("SBTV_ENABLE_API", True),
+    show_default=True,
+    help="Toggle the configuration API (SBTV_ENABLE_API).",
+)
+@click.option(
+    "--api-host",
+    default=os.getenv("SBTV_API_HOST", "127.0.0.1"),
+    show_default=True,
+    help="API bind address (SBTV_API_HOST).",
+)
+@click.option(
+    "--api-port",
+    type=int,
+    default=int(os.getenv("SBTV_API_PORT", "8000")),
+    show_default=True,
+    help="API bind port (SBTV_API_PORT).",
+)
+@click.option(
+    "--frontend-dist",
+    default=os.getenv("SBTV_FRONTEND_DIST", ""),
+    show_default=False,
+    help="Path to built frontend assets (SBTV_FRONTEND_DIST).",
+)
+@click.option(
+    "--enable-docs/--disable-docs",
+    default=_env_bool("SBTV_ENABLE_DOCS", False),
+    show_default=True,
+    help="Expose Swagger docs (SBTV_ENABLE_DOCS).",
+)
+# legacy commands as arguments
 @click.pass_context
-def cli(ctx, data, debug, http_tracing, setup, setup_cli):
+def cli(
+    ctx,
+    data,
+    debug,
+    http_tracing,
+    enable_service,
+    enable_api,
+    api_host,
+    api_port,
+    frontend_dist,
+    enable_docs,
+):
     """SponsorBlockTV Web"""
     ctx.ensure_object(dict)
     ctx.obj["data_dir"] = data
     ctx.obj["debug"] = debug
     ctx.obj["http_tracing"] = http_tracing
+    ctx.obj["enable_service"] = enable_service
+    ctx.obj["enable_api"] = enable_api
+    ctx.obj["api_host"] = api_host
+    ctx.obj["api_port"] = api_port
+    ctx.obj["frontend_dist"] = frontend_dist.strip() or None
+    ctx.obj["enable_docs"] = enable_docs
 
     logger = logging.getLogger()
     ctx.obj["logger"] = logger
@@ -337,20 +405,27 @@ def cli(ctx, data, debug, http_tracing, setup, setup_cli):
         logger.setLevel(logging.INFO)
 
     if ctx.invoked_subcommand is None:
-        if setup:
-            ctx.invoke(setup_command)
-        elif setup_cli:
-            ctx.invoke(setup_cli_command)
-        else:
-            ctx.invoke(start)
+        ctx.invoke(start)
 
 @cli.command()
 @click.pass_context
 def start(ctx):
-    """Start the main program"""
-    config = Config(ctx.obj["data_dir"])
-    config.validate()
-    main.main(config, ctx.obj["debug"], ctx.obj["http_tracing"])
+    """Start the main program (service + API by default)"""
+    env_overrides = {
+        "SBTV_DATA_DIR": ctx.obj["data_dir"],
+        "SBTV_DEBUG": "1" if ctx.obj["debug"] else "0",
+        "SBTV_HTTP_TRACING": "1" if ctx.obj["http_tracing"] else "0",
+        "SBTV_ENABLE_SERVICE": "1" if ctx.obj["enable_service"] else "0",
+        "SBTV_ENABLE_API": "1" if ctx.obj["enable_api"] else "0",
+        "SBTV_API_HOST": ctx.obj["api_host"],
+        "SBTV_API_PORT": str(ctx.obj["api_port"]),
+        "SBTV_ENABLE_DOCS": "1" if ctx.obj["enable_docs"] else "0",
+    }
+    if ctx.obj["frontend_dist"]:
+        env_overrides["SBTV_FRONTEND_DIST"] = ctx.obj["frontend_dist"]
+    for key, value in env_overrides.items():
+        os.environ[key] = value
+    main.main()
 
 
 @cli.command()

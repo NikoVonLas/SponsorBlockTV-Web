@@ -20,15 +20,12 @@ dynamic = ["dependencies"]
 files = ["requirements.txt"]
 
 [tool.hatch.build.targets.wheel]
-packages = [
-    { include = "sponsorblocktv_web", from = "src/backend" },
-]
+packages = ["src/backend/sponsorblocktv_web"]
 
 [tool.hatch.build.targets.sdist]
 include = [
     "src/backend/sponsorblocktv_web",
     "src/backend/main.py",
-    "src/backend/run_container.py",
 ]
 
 [project.urls]

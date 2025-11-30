@@ -6,8 +6,8 @@ import {
   useUpdateConfigMutation,
 } from "../api/hooks";
 import type { ConfigUpdateRequest } from "../api/types";
+import { useTranslation, type TranslationKey } from "../i18n";
 
-// Type helper replaced below
 type BooleanField = {
   key:
     | "skip_ads"
@@ -15,35 +15,35 @@ type BooleanField = {
     | "skip_count_tracking"
     | "auto_play"
     | "use_proxy";
-  label: string;
-  description: string;
+  labelKey: TranslationKey;
+  descriptionKey: TranslationKey;
 };
 
 const booleanFieldConfigs: BooleanField[] = [
   {
     key: "skip_ads",
-    label: "Skip ads",
-    description: "Automatically skip skippable ads and speed through sponsor blocks.",
+    labelKey: "config.automation.fields.skip_ads.label",
+    descriptionKey: "config.automation.fields.skip_ads.description",
   },
   {
     key: "mute_ads",
-    label: "Mute ads",
-    description: "Mute audio while unskippable ads are being shown.",
+    labelKey: "config.automation.fields.mute_ads.label",
+    descriptionKey: "config.automation.fields.mute_ads.description",
   },
   {
     key: "skip_count_tracking",
-    label: "Track skip counts",
-    description: "Record how many segments were skipped for diagnostics.",
+    labelKey: "config.automation.fields.skip_count_tracking.label",
+    descriptionKey: "config.automation.fields.skip_count_tracking.description",
   },
   {
     key: "auto_play",
-    label: "Auto play",
-    description: "Resume playback instantly when a new video loads.",
+    labelKey: "config.automation.fields.auto_play.label",
+    descriptionKey: "config.automation.fields.auto_play.description",
   },
   {
     key: "use_proxy",
-    label: "Use proxy",
-    description: "Route SponsorBlockTV requests through the configured proxy.",
+    labelKey: "config.automation.fields.use_proxy.label",
+    descriptionKey: "config.automation.fields.use_proxy.description",
   },
 ];
 
@@ -51,6 +51,7 @@ export const ConfigPage = () => {
   const { data: config, isLoading, error } = useConfigQuery();
   const { data: skipCategoryOptions } = useSkipCategoryOptions();
   const updateMutation = useUpdateConfigMutation();
+  const { t } = useTranslation();
 
   const [joinName, setJoinName] = useState("");
   const [apikey, setApikey] = useState("");
@@ -92,26 +93,24 @@ export const ConfigPage = () => {
   };
 
   if (isLoading || !config) {
-    return <p className="text-muted">Loading configuration…</p>;
+    return <p className="text-muted">{t("config.loading")}</p>;
   }
 
   return (
     <div className="space-y-10">
       <header>
-        <h1 className="text-2xl font-semibold">Global configuration</h1>
-        <p className="text-muted mt-1">
-          Tweak how SponsorBlockTV behaves across every paired device.
-        </p>
+        <h1 className="text-2xl font-semibold">{t("config.title")}</h1>
+        <p className="text-muted mt-1">{t("config.subtitle")}</p>
       </header>
 
       {(error || updateMutation.error) && (
         <div className="rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          {(error ?? updateMutation.error)?.message ?? "Configuration request failed."}
+          {(error ?? updateMutation.error)?.message ?? t("config.error")}
         </div>
       )}
 
       <section className="rounded-2xl border border-border bg-surface-100 p-6">
-        <h2 className="text-lg font-semibold">Automation behaviour</h2>
+        <h2 className="text-lg font-semibold">{t("config.automation.title")}</h2>
         <div className="mt-4 divide-y divide-border">
           {booleanFieldConfigs.map((field) => (
             <label
@@ -119,8 +118,8 @@ export const ConfigPage = () => {
               className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0 md:flex-row md:items-center md:justify-between"
             >
               <div>
-                <p className="font-medium">{field.label}</p>
-                <p className="text-sm text-muted">{field.description}</p>
+                <p className="font-medium">{t(field.labelKey)}</p>
+                <p className="text-sm text-muted">{t(field.descriptionKey)}</p>
               </div>
               <input
                 type="checkbox"
@@ -134,10 +133,10 @@ export const ConfigPage = () => {
       </section>
 
       <section className="rounded-2xl border border-border bg-surface-100 p-6">
-        <h2 className="text-lg font-semibold">Identity & minimums</h2>
+        <h2 className="text-lg font-semibold">{t("config.identity.title")}</h2>
         <form className="mt-4 grid gap-6 md:grid-cols-2" onSubmit={handleIdentitySubmit}>
           <label className="text-sm font-medium">
-            Join name
+            {t("config.identity.joinName")}
             <input
               className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/60"
               value={joinName}
@@ -146,18 +145,18 @@ export const ConfigPage = () => {
             />
           </label>
           <label className="text-sm font-medium md:col-span-2">
-            YouTube API key
+            {t("config.identity.apiKey")}
             <input
               className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/60"
               value={apikey}
               onChange={(event) => setApikey(event.target.value)}
             />
             <span className="text-xs text-muted">
-              Required for channel search. Stored only on your host.
+              {t("config.identity.apiKeyHint")}
             </span>
           </label>
           <label className="text-sm font-medium max-w-xs">
-            Minimum skip length (seconds)
+            {t("config.identity.minimumSkip")}
             <input
               type="number"
               min={0}
@@ -173,20 +172,20 @@ export const ConfigPage = () => {
               className="rounded-lg bg-accent px-4 py-2 font-semibold text-white hover:bg-accent/90 disabled:opacity-60"
               disabled={updateMutation.isPending}
             >
-              {updateMutation.isPending ? "Saving…" : "Save changes"}
+              {updateMutation.isPending
+                ? t("config.identity.submitting")
+                : t("config.identity.submit")}
             </button>
             {updateMutation.isSuccess && (
-              <span className="text-sm text-green-300">Saved</span>
+              <span className="text-sm text-green-300">{t("common.saved")}</span>
             )}
           </div>
         </form>
       </section>
 
       <section className="rounded-2xl border border-border bg-surface-100 p-6">
-        <h2 className="text-lg font-semibold">Skip categories</h2>
-        <p className="text-sm text-muted">
-          SponsorBlock segments tagged with the selected categories will be skipped.
-        </p>
+        <h2 className="text-lg font-semibold">{t("config.skipCategories.title")}</h2>
+        <p className="text-sm text-muted">{t("config.skipCategories.description")}</p>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {(skipCategoryOptions ?? []).map((option) => (
             <label

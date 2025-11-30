@@ -5,25 +5,26 @@ import copy
 import json
 import logging
 import os
+import mimetypes
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from importlib import resources
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Optional
+from typing import Annotated, Any, Awaitable, Callable, Optional
 
 import aiohttp
 import jwt
 from jwt import InvalidTokenError
 from litestar import Litestar, Request, delete, get, patch, post, put
-from litestar.enums import MediaType
 from litestar.exceptions import HTTPException
 from litestar.middleware.base import DefineMiddleware
 from litestar.openapi import OpenAPIConfig
 from litestar.openapi.plugins import SwaggerRenderPlugin
 from litestar.openapi.spec import Components, SecurityScheme, Server
-from litestar.response import File, Response
+from litestar.response import Response
 from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
+from litestar.params import Parameter
 from pydantic import BaseModel, Field, field_validator
 
 from . import api_helpers, constants, ytlounge
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 try:
     PACKAGE_VERSION = version("sponsorblocktv-web")
 except PackageNotFoundError:  # pragma: no cover - package metadata missing during dev
-    PACKAGE_VERSION = "0.0.0"
+    PACKAGE_VERSION = "1.0.0"
 
 API_PREFIX = "/api"
 SCHEMA_PATH = f"{API_PREFIX}/schema"
@@ -113,15 +114,30 @@ def _resolve_frontend_dist() -> Path | None:
         return _FRONTEND_DIST
 
     candidates: list[Path] = []
+    seen: set[Path] = set()
+
+    def add_candidate(path_like: str | Path) -> None:
+        base = Path(path_like)
+        for candidate in (base, base / "dist"):
+            if candidate in seen:
+                continue
+            candidates.append(candidate)
+            seen.add(candidate)
+
     env_path = os.getenv(FRONTEND_DIST_ENV)
     if env_path:
-        candidates.append(Path(env_path))
+        add_candidate(env_path)
     try:
         package_candidate = resources.files("sponsorblocktv_web").joinpath("frontend_dist")
-        candidates.append(Path(str(package_candidate)))
+        add_candidate(Path(str(package_candidate)))
     except Exception:  # pragma: no cover - optional resource
         pass
-    candidates.append(Path(__file__).with_name("frontend_dist"))
+    add_candidate(Path(__file__).with_name("frontend_dist"))
+    base_path = Path(__file__).resolve()
+    parents = list(base_path.parents)
+    for idx in (1, 2, 3, 4):
+        if len(parents) > idx:
+            add_candidate(parents[idx] / "frontend")
 
     for candidate in candidates:
         if candidate.is_dir():
@@ -147,16 +163,20 @@ def _get_frontend_file(path_fragment: str) -> Path | None:
     return None
 
 
-class FrontendMiddleware:
-    def __init__(self, app, *, dist: Path):
+class FrontendApp:
+    def __init__(self, app: Litestar, *, dist: Path):
         self.app = app
         self.dist = dist
+
+    def __getattr__(self, item: str) -> Any:
+        return getattr(self.app, item)
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        path = scope.get("path", "")
+
+        path = scope.get("path") or scope.get("raw_path", b"").decode("utf-8", "ignore")
         if not path or path.startswith(API_PREFIX):
             await self.app(scope, receive, send)
             return
@@ -168,8 +188,15 @@ class FrontendMiddleware:
         if target is None:
             await self.app(scope, receive, send)
             return
-        response = File(path=target)
-        await response(scope, receive, send)
+
+        mime_type, _ = mimetypes.guess_type(str(target))
+        body = target.read_bytes()
+        headers = [
+            (b"content-type", (mime_type or "application/octet-stream").encode("ascii")),
+            (b"content-length", str(len(body)).encode("ascii")),
+        ]
+        await send({"type": "http.response.start", "status": 200, "headers": headers})
+        await send({"type": "http.response.body", "body": body})
 
 def _get_auth_settings() -> AuthSettings:
     username = os.getenv(AUTH_USERNAME_ENV, DEFAULT_USERNAME)
@@ -594,11 +621,28 @@ async def login(request: Request, data: LoginRequest) -> LoginResponse:
     return LoginResponse(access_token=token, expires_in=expires_in)
 
 
+@get("/", tags=["System"])
+async def root_status() -> dict[str, Any]:
+    frontend_available = _resolve_frontend_dist() is not None
+    response = {
+        "message": "SponsorBlockTV Web API",
+        "frontend_available": frontend_available,
+        "api_base": API_PREFIX,
+        "login_url": LOGIN_PATH,
+        "docs_url": SCHEMA_PATH,
+    }
+    if not frontend_available:
+        response[
+            "hint"
+        ] = "Build the React UI (pnpm build in src/frontend) or set SBTV_FRONTEND_DIST to the dist path."
+    return response
+
+
 @api_get("", tags=["System"])
 async def api_root() -> dict[str, str]:
     response = {
         "message": "SponsorBlockTV Web API",
-        "documentation_enabled": docs_enabled(),
+        "documentation_enabled": _docs_enabled(),
         "schema_url": SCHEMA_PATH,
         "login_url": LOGIN_PATH,
     }
@@ -795,7 +839,10 @@ async def remove_channel(request: Request, channel_id: str) -> None:
 
 
 @api_get("/channels/search", tags=["Channels"])
-async def search_channels(request: Request, query: str) -> list[ChannelSearchResult]:
+async def search_channels(
+    request: Request,
+    search_query: Annotated[str, Parameter(query="query", required=True)],
+) -> list[ChannelSearchResult]:
     state = await _get_state(request)
     config_snapshot = await state.get_config_snapshot()
     if not config_snapshot.apikey:
@@ -803,9 +850,11 @@ async def search_channels(request: Request, query: str) -> list[ChannelSearchRes
             status_code=400,
             detail="YouTube API key must be set before searching for channels.",
         )
+    if not search_query.strip():
+        raise HTTPException(status_code=400, detail="Query parameter cannot be empty.")
 
     async def search(helper: api_helpers.ApiHelper) -> list[ChannelSearchResult]:
-        channels = await helper.search_channels(query)
+        channels = await helper.search_channels(search_query)
         return [
             ChannelSearchResult(id=channel_id, name=name, subscriber_count=str(subs))
             for channel_id, name, subs in channels
@@ -816,7 +865,7 @@ async def search_channels(request: Request, query: str) -> list[ChannelSearchRes
 
 
 
-def create_app(data_dir: str, *, debug: bool = False) -> Litestar:
+def create_app(data_dir: str, *, debug: bool = False) -> Litestar | FrontendApp:
     api_state = ApiState(data_dir)
     auth_settings = _get_auth_settings()
 
@@ -829,6 +878,7 @@ def create_app(data_dir: str, *, debug: bool = False) -> Litestar:
         await api_state.shutdown()
 
     route_handlers = [
+        root_status,
         health_check,
         login,
         api_root,
@@ -848,19 +898,15 @@ def create_app(data_dir: str, *, debug: bool = False) -> Litestar:
     ]
 
     docs_enabled = _docs_enabled()
+    frontend_dist = _resolve_frontend_dist()
 
-    return Litestar(
+    app = Litestar(
         route_handlers=route_handlers,
         on_startup=[on_startup],
         on_shutdown=[on_shutdown],
         debug=debug,
         openapi_config=OPENAPI_CONFIG if docs_enabled else None,
         middleware=[
-            *(
-                [DefineMiddleware(FrontendMiddleware, dist=frontend_dist)]
-                if (frontend_dist := _resolve_frontend_dist()) is not None
-                else []
-            ),
             DefineMiddleware(
                 JWTAuthMiddleware,
                 auth_settings=auth_settings,
@@ -869,6 +915,10 @@ def create_app(data_dir: str, *, debug: bool = False) -> Litestar:
             ),
         ],
     )
+
+    if frontend_dist is not None:
+        return FrontendApp(app, dist=frontend_dist)
+    return app
 
 
 __all__ = [

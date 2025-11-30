@@ -12,7 +12,44 @@ ads entirely. Everything runs locally with SponsorBlock data fetched from the pu
 ## Installation
 
 See the [wiki](https://github.com/dmunozv04/SponsorBlockTV-Web/wiki/Installation) for Docker, bare-metal, and NAS
-instructions.
+instructions. The snippets below cover the two most common container workflows.
+
+### Docker Compose Quick Start
+
+The repository ships with a ready-to-use `docker-compose.yml`. Clone the repo, tweak the environment block to match your
+credentials (at minimum set `SBTV_AUTH_USERNAME`, `SBTV_AUTH_PASSWORD`, and `SBTV_JWT_SECRET`), then run:
+
+```bash
+docker compose up -d            # use --build if you changed the source
+```
+
+Useful notes:
+
+- `network_mode: host` is enabled to allow SSDP discovery. It works on Linux; remove that line and add
+  `ports: ["8000:8000"]` if you are on macOS/Windows or do not need multicast discovery.
+- Configuration lives in the named volume `sbtv_data`. Replace it with a bind mount
+  (e.g., `- ./data:/app/data`) if you want the files on the host filesystem.
+- Expose port `8000` (or `SBTV_API_PORT`) through your reverse proxy to reach both the UI (`/`) and API (`/api`).
+
+### Plain Docker Run
+
+To run directly from the published image without Compose:
+
+```bash
+docker run -d \
+  --name sponsorblocktv-web \
+  --restart unless-stopped \
+  --network host \  # or -p 8000:8000 on macOS/Windows
+  -v "$(pwd)/data:/app/data" \
+  -e SBTV_AUTH_USERNAME=admin \
+  -e SBTV_AUTH_PASSWORD=supersecret \
+  -e SBTV_JWT_SECRET=change-me \
+  ghcr.io/dmunozv04/sponsorblocktv-web:latest
+```
+
+Swap `--network host` for `-p 8000:8000` if host networking is unavailable. Any additional environment variables from
+the table below can be appended with `-e`. Once the container is running, open `http://<host>:8000/` to access the
+dashboard.
 
 ## Device Compatibility
 

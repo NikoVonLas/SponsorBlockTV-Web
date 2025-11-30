@@ -56,4 +56,4 @@ WORKDIR /app
 COPY --from=compiler /app .
 COPY --from=frontend_builder /frontend/dist /app/frontend
 
-ENTRYPOINT ["python3", "-u", "run_container.pyc"]
+ENTRYPOINT ["python3", "-u", "-m", "sponsorblocktv_web.main"]

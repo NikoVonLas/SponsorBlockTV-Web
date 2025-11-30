@@ -1,35 +1,19 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Backend code now lives under `src/backend/sponsorblocktv_web/`. GUI setup is under `setup_wizard.py`, runtime logic in `main.py`, helper utilities in `helpers.py`, and the Litestar API in `api_app.py`.
-- The React SPA frontend (JWT login + config UI) is located in `src/frontend/`.
-- CLI entry points are in `src/backend/main.py` (wrapper) and `src/backend/sponsorblocktv_web/__main__.py`.
-- Configuration templates reside in `config.json.template`; runtime configs now live in the SQLite database `data/config.db` (legacy `config.json` files are imported automatically).
-- All API endpoints (except `GET /health`, `POST /auth/login`, `/docs`, and `/schema`) require JWT bearer tokens issued by `/auth/login`; credentials/secret come from the `SBTV_AUTH_*` environment variables.
-- No dedicated test directory yet; create `tests/` for new automated coverage.
+Backend sources live under `src/backend/sponsorblocktv_web/`, with `setup_wizard.py` for the Textual UI, `main.py` as the CLI wrapper, `helpers.py` for shared utilities, and `api_app.py` for the Litestar API. CLI entry points reside in `src/backend/main.py` and `src/backend/sponsorblocktv_web/__main__.py`. The React SPA (JWT login + configuration UI) is in `src/frontend/`. Runtime configuration is persisted in `data/config.db`; legacy `config.json` files import automatically via the startup flow. Place new automated tests in `tests/`.
 
 ## Build, Test, and Development Commands
-- `python3 -m venv .venv && source .venv/bin/activate` — create an isolated environment.
-- `pip install -r requirements.txt` — install runtime and CLI dependencies.
-- `PYTHONPATH=src/backend python3 src/backend/main.py` — run the wrapper entry point locally (Textual wizard lives in `src/backend/sponsorblocktv_web/setup_wizard.py`).
-- `sponsorblocktv-web --data ./data start` — run the automation service.
-- `sponsorblocktv-web --data ./data api --host 127.0.0.1 --port 8000` — expose the Litestar API for remote configuration.
-- `python3 -m compileall src/backend` — quick syntax smoke check for modules.
-- `cd src/frontend && pnpm dev` — launch the React SPA locally (requires Node 20 + pnpm).
+Use `python3 -m venv .venv && source .venv/bin/activate` to bootstrap a local environment, then `pip install -r requirements.txt` for dependencies. Run the Textual setup wizard with `PYTHONPATH=src/backend python3 src/backend/main.py`. Start the automation service via `sponsorblocktv-web --data ./data start`, or expose the API with `sponsorblocktv-web --data ./data api --host 127.0.0.1 --port 8000`. Quickly sanity-check Python modules using `python3 -m compileall src/backend`. For the UI, `cd src/frontend && pnpm dev` (Node 20 + pnpm required).
 
 ## Coding Style & Naming Conventions
-- Python 3.9+ codebase; follow standard Black/Ruff style (see `pyproject.toml` `line-length=100`).
-- Use snake_case for functions/variables, PascalCase for classes, and UPPER_SNAKE for constants.
-- Prefer type hints; keep imports grouped (stdlib, third-party, local).
-- Minimize inline comments; add short context comments only for complex logic.
+Target Python 3.9+ with Black/Ruff defaults (`line-length=100`). Keep imports grouped as stdlib, third-party, and local. Favor type hints, snake_case functions/variables, PascalCase classes, and UPPER_SNAKE constants. Default to ASCII unless a file already uses Unicode. Add succinct comments only where logic is non-obvious.
 
 ## Testing Guidelines
-- No formal suite is present; add `pytest`-based tests under `tests/` with filenames like `test_module.py`.
-- Cover async flows (API pairing, segment fetching) using `pytest.mark.asyncio`.
-- When touching config logic, manually verify with `sponsorblocktv-web start` and `GET /api/config` on the API.
+Adopt `pytest` with files under `tests/` named `test_*.py`. Use `pytest.mark.asyncio` for async API or segment-fetch flows. When modifying configuration logic, manually verify with `sponsorblocktv-web start` and `GET /api/config` against the API to ensure the SQLite-backed settings persist correctly.
 
 ## Commit & Pull Request Guidelines
-- Commit messages follow a concise, imperative style (e.g., `Add semver tags to docker build`).
-- Keep changes scoped; separate dependency bumps from feature work.
-- PRs should include: summary of changes, testing steps (manual/API commands), and links to related issues.
-- Include screenshots or terminal snippets when altering user-facing CLI or Textual views.
+Write imperative, terse commit messages (e.g., `Add semver tags to docker build`). Scope commits narrowly and avoid bundling dependency bumps with feature work. PRs should summarize changes, list manual/API testing commands, link related issues, and include screenshots or terminal snippets for any CLI/Textual UI updates.
+
+## Security & Configuration Tips
+All API routes except `GET /health`, `POST /auth/login`, `/docs`, and `/schema` require JWT bearer tokens issued by `/auth/login`. Credentials and secrets come from the `SBTV_AUTH_*` environment variables; keep them out of version control and sample them through `.env.example` style notes if needed. Configuration templates belong in `config.json.template`, while live data stays in `data/config.db`.

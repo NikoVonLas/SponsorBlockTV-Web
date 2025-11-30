@@ -1,13 +1,33 @@
 import asyncio
 import logging
+import multiprocessing
+import os
+import signal
+import sqlite3
+import sys
 import time
-from signal import SIGINT, SIGTERM, signal
-from typing import Optional
+from dataclasses import dataclass
+from typing import Awaitable, Callable, Dict, Optional
 
 import aiohttp
 
 from . import api_helpers, ytlounge
 from .debug_helpers import AiohttpTracer
+
+
+@dataclass
+class DeviceSnapshot:
+    screen_id: str
+    name: str
+    offset: float
+
+
+@dataclass
+class ListenerHandle:
+    snapshot: DeviceSnapshot
+    listener: "DeviceListener"
+    loop_task: asyncio.Task
+    refresh_task: asyncio.Task
 
 
 class DeviceListener:
@@ -144,8 +164,31 @@ class DeviceListener:
         await self.lounge_controller.change_web_session(self.web_session)
 
 
-async def finish(devices, web_session, tcp_connector):
-    await asyncio.gather(*(device.cancel() for device in devices), return_exceptions=True)
+async def stop_listener(handle: ListenerHandle) -> None:
+    await handle.listener.cancel()
+    for task in (handle.loop_task, handle.refresh_task):
+        if task:
+            task.cancel()
+    await asyncio.gather(
+        *(task for task in (handle.loop_task, handle.refresh_task) if task),
+        return_exceptions=True,
+    )
+
+
+async def finish(
+    listeners: Dict[str, ListenerHandle],
+    monitor_task: Optional[asyncio.Task],
+    web_session,
+    tcp_connector,
+) -> None:
+    if monitor_task:
+        monitor_task.cancel()
+        await asyncio.gather(monitor_task, return_exceptions=True)
+    await asyncio.gather(
+        *(stop_listener(handle) for handle in list(listeners.values())),
+        return_exceptions=True,
+    )
+    listeners.clear()
     await web_session.close()
     await tcp_connector.close()
 
@@ -153,10 +196,72 @@ async def finish(devices, web_session, tcp_connector):
 def handle_signal(signum, frame):
     raise KeyboardInterrupt()
 
+
+def _snapshot_from_device(device) -> DeviceSnapshot:
+    screen_id = str(getattr(device, "screen_id", "") or "")
+    name = str(getattr(device, "name", "") or screen_id)
+    offset = float(getattr(device, "offset", 0) or 0.0)
+    return DeviceSnapshot(screen_id=screen_id, name=name, offset=offset)
+
+
+def _snapshot_changed(existing: DeviceSnapshot, new: DeviceSnapshot) -> bool:
+    if existing.name != new.name:
+        return True
+    return abs(existing.offset - new.offset) > 1e-3
+
+
+async def _load_device_snapshots(data_dir: str) -> Dict[str, DeviceSnapshot]:
+    def _read() -> Dict[str, DeviceSnapshot]:
+        db_path = os.path.join(data_dir, "config.db")
+        if not os.path.exists(db_path):
+            return {}
+        conn = sqlite3.connect(db_path)
+        try:
+            rows = conn.execute("SELECT screen_id, name, offset FROM devices").fetchall()
+        finally:
+            conn.close()
+        result: Dict[str, DeviceSnapshot] = {}
+        for screen_id, name, offset in rows:
+            normalized_id = str(screen_id or "").strip()
+            if not normalized_id:
+                continue
+            readable_name = str(name or normalized_id)
+            offset_seconds = float(offset or 0) / 1000.0
+            result[normalized_id] = DeviceSnapshot(
+                screen_id=normalized_id,
+                name=readable_name,
+                offset=offset_seconds,
+            )
+        return result
+
+    return await asyncio.to_thread(_read)
+
+
+async def monitor_devices(
+    data_dir: str,
+    listeners: Dict[str, ListenerHandle],
+    start_listener: Callable[[DeviceSnapshot], Awaitable[ListenerHandle]],
+) -> None:
+    try:
+        while True:
+            await asyncio.sleep(5)
+            desired = await _load_device_snapshots(data_dir)
+            for screen_id, snapshot in desired.items():
+                handle = listeners.get(screen_id)
+                if handle is None:
+                    listeners[screen_id] = await start_listener(snapshot)
+                    continue
+                if _snapshot_changed(handle.snapshot, snapshot):
+                    await stop_listener(handle)
+                    listeners[screen_id] = await start_listener(snapshot)
+            for screen_id in list(listeners.keys()):
+                if screen_id not in desired:
+                    await stop_listener(listeners.pop(screen_id))
+    except asyncio.CancelledError:
+        return
+
 async def main_async(config, debug, http_tracing):
     loop = asyncio.get_event_loop_policy().get_event_loop()
-    tasks = []  # Save the tasks so the interpreter doesn't garbage collect them
-    devices = []  # Save the devices to close them later
     if debug:
         loop.set_debug(True)
 
@@ -178,27 +283,139 @@ async def main_async(config, debug, http_tracing):
         web_session = aiohttp.ClientSession(trust_env=config.use_proxy, connector=tcp_connector)
 
     api_helper = api_helpers.ApiHelper(config, web_session)
-    for i in config.devices:
-        device = DeviceListener(api_helper, config, i, debug, web_session)
-        devices.append(device)
-        await device.initialize_web_session()
-        tasks.append(loop.create_task(device.loop()))
-        tasks.append(loop.create_task(device.refresh_auth_loop()))
-    signal(SIGTERM, handle_signal)
-    signal(SIGINT, handle_signal)
+    listeners: Dict[str, ListenerHandle] = {}
+
+    async def start_listener(snapshot: DeviceSnapshot) -> ListenerHandle:
+        listener = DeviceListener(api_helper, config, snapshot, debug, web_session)
+        await listener.initialize_web_session()
+        loop_task = loop.create_task(listener.loop())
+        refresh_task = loop.create_task(listener.refresh_auth_loop())
+        return ListenerHandle(
+            snapshot=snapshot,
+            listener=listener,
+            loop_task=loop_task,
+            refresh_task=refresh_task,
+        )
+
+    for device in config.devices:
+        snapshot = _snapshot_from_device(device)
+        if not snapshot.screen_id:
+            continue
+        listeners[snapshot.screen_id] = await start_listener(snapshot)
+
+    monitor_task = loop.create_task(monitor_devices(config.data_dir, listeners, start_listener))
+
+    signal.signal(signal.SIGTERM, handle_signal)
+    signal.signal(signal.SIGINT, handle_signal)
     try:
-        await asyncio.gather(*tasks)
+        await asyncio.Event().wait()
     except KeyboardInterrupt:
         print("Cancelling tasks and exiting...")
-        await finish(devices, web_session, tcp_connector)
-        for task in tasks:
-            task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
     finally:
-        await web_session.close()
-        await tcp_connector.close()
+        await finish(listeners, monitor_task, web_session, tcp_connector)
         print("Exited")
 
 
-def main(config, debug, http_tracing):
+def run_service(config, debug, http_tracing):
     asyncio.run(main_async(config, debug, http_tracing))
+
+
+def _as_bool(value: Optional[str], default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _get_env(name: str, default: Optional[str] = None) -> Optional[str]:
+    value = os.getenv(name)
+    if value is not None:
+        return value
+    return default
+
+
+def _run_service_process() -> None:
+    from .helpers import Config
+
+    data_dir = _get_env("SBTV_DATA_DIR", "data")
+    debug = _as_bool(_get_env("SBTV_DEBUG"), False)
+    http_tracing = _as_bool(_get_env("SBTV_HTTP_TRACING"), False)
+
+    config = Config(data_dir)
+    config.validate()
+    run_service(config, debug, http_tracing)
+
+
+def _run_api_process() -> None:
+    from .api_app import create_app
+
+    try:
+        import uvicorn
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError("uvicorn is required but not installed") from exc
+
+    data_dir = _get_env("SBTV_DATA_DIR", "data")
+    host = _get_env("SBTV_API_HOST", "0.0.0.0")
+    port = int(_get_env("SBTV_API_PORT", "8000"))
+    debug = _as_bool(_get_env("SBTV_DEBUG"), False)
+
+    app = create_app(data_dir, debug=debug)
+    uvicorn.run(app, host=host, port=port)
+
+
+def main() -> None:
+    enable_service = _as_bool(_get_env("SBTV_ENABLE_SERVICE"), True)
+    enable_api = _as_bool(_get_env("SBTV_ENABLE_API"), True)
+
+    if not (enable_service or enable_api):
+        print("Both SBTV_ENABLE_SERVICE and SBTV_ENABLE_API are disabled. Exiting.", file=sys.stderr)
+        sys.exit(1)
+
+    processes: list[multiprocessing.Process] = []
+
+    if enable_service:
+        processes.append(multiprocessing.Process(target=_run_service_process, name="SBTV-Service"))
+    if enable_api:
+        processes.append(multiprocessing.Process(target=_run_api_process, name="SBTV-API"))
+
+    for process in processes:
+        process.daemon = True
+        process.start()
+
+    def _terminate_processes(*args) -> None:
+        exit_code = 0
+        if args and isinstance(args[0], int):
+            exit_code = args[0]
+        for proc in processes:
+            if proc.is_alive():
+                proc.terminate()
+        for proc in processes:
+            proc.join()
+        sys.exit(exit_code)
+
+    signal.signal(signal.SIGTERM, _terminate_processes)
+    signal.signal(signal.SIGINT, _terminate_processes)
+
+    try:
+        while processes:
+            for proc in list(processes):
+                proc.join(timeout=0.5)
+                if not proc.is_alive():
+                    processes.remove(proc)
+                    if proc.exitcode not in (0, None):
+                        print(
+                            f"{proc.name} exited with code {proc.exitcode}, shutting down container.",
+                            file=sys.stderr,
+                        )
+                        _terminate_processes(proc.exitcode or 1)
+    except KeyboardInterrupt:
+        _terminate_processes()
+    finally:
+        for proc in processes:
+            if proc.is_alive():
+                proc.terminate()
+        for proc in processes:
+            proc.join()
+
+
+if __name__ == "__main__":
+    main()

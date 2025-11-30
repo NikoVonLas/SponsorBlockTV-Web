@@ -9,6 +9,7 @@ import {
   useUpdateDeviceMutation,
 } from "../api/hooks";
 import type { DeviceModel } from "../api/types";
+import { useTranslation } from "../i18n";
 
 type DeviceFormState = {
   screen_id: string;
@@ -35,6 +36,7 @@ export const DevicesPage = () => {
   const [editForm, setEditForm] = useState<DeviceFormState>(emptyForm);
   const [pairCode, setPairCode] = useState("");
   const [pairName, setPairName] = useState("");
+  const { t } = useTranslation();
 
   const handleAdd = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -91,10 +93,8 @@ export const DevicesPage = () => {
   return (
     <div className="space-y-10">
       <header>
-        <h1 className="text-2xl font-semibold">Devices</h1>
-        <p className="text-muted mt-1">
-          Register lounge screens, tweak offsets, and make sure every TV stays paired.
-        </p>
+        <h1 className="text-2xl font-semibold">{t("devices.title")}</h1>
+        <p className="text-muted mt-1">{t("devices.subtitle")}</p>
       </header>
 
       {(error || addDevice.error || updateDevice.error || deleteDevice.error) && (
@@ -103,20 +103,18 @@ export const DevicesPage = () => {
             addDevice.error?.message ||
             updateDevice.error?.message ||
             deleteDevice.error?.message ||
-            "Device request failed."}
+            t("devices.error")}
         </div>
       )}
 
       <section className="rounded-2xl border border-border bg-surface-100 p-6 space-y-6">
         <div>
-          <h2 className="text-lg font-semibold">Add device manually</h2>
-          <p className="text-sm text-muted">
-            Provide the lounge screen identifier from your YouTube client.
-          </p>
+          <h2 className="text-lg font-semibold">{t("devices.addSection.title")}</h2>
+          <p className="text-sm text-muted">{t("devices.addSection.description")}</p>
         </div>
         <form className="grid gap-4 md:grid-cols-3" onSubmit={handleAdd}>
           <label className="text-sm font-medium md:col-span-1">
-            Screen ID
+            {t("devices.addSection.screenId")}
             <input
               className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2"
               value={newDevice.screen_id}
@@ -127,7 +125,7 @@ export const DevicesPage = () => {
             />
           </label>
           <label className="text-sm font-medium md:col-span-1">
-            Name
+            {t("devices.addSection.name")}
             <input
               className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2"
               value={newDevice.name}
@@ -137,7 +135,7 @@ export const DevicesPage = () => {
             />
           </label>
           <label className="text-sm font-medium md:col-span-1">
-            Offset (seconds)
+            {t("devices.addSection.offset")}
             <input
               type="number"
               min={0}
@@ -157,7 +155,9 @@ export const DevicesPage = () => {
               className="rounded-lg bg-accent px-4 py-2 font-semibold text-white hover:bg-accent/90 disabled:opacity-60"
               disabled={addDevice.isPending}
             >
-              {addDevice.isPending ? "Adding…" : "Add device"}
+              {addDevice.isPending
+                ? t("devices.addSection.submitting")
+                : t("devices.addSection.submit")}
             </button>
           </div>
         </form>
@@ -165,24 +165,22 @@ export const DevicesPage = () => {
 
       <section className="rounded-2xl border border-border bg-surface-100 p-6 space-y-6">
         <div>
-          <h2 className="text-lg font-semibold">Pair from PIN</h2>
-          <p className="text-sm text-muted">
-            Enter the 12-digit pairing code displayed on your YouTube TV app.
-          </p>
+          <h2 className="text-lg font-semibold">{t("devices.pairSection.title")}</h2>
+          <p className="text-sm text-muted">{t("devices.pairSection.description")}</p>
         </div>
         <form className="grid gap-4 md:grid-cols-2" onSubmit={handlePair}>
           <label className="text-sm font-medium">
-            Pairing code
+            {t("devices.pairSection.pairingCode")}
             <input
               className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2"
               value={pairCode}
               onChange={(event) => setPairCode(event.target.value)}
-              placeholder="1234 5678 9012"
+              placeholder={t("devices.pairSection.pairingPlaceholder")}
               required
             />
           </label>
           <label className="text-sm font-medium">
-            Optional name
+            {t("devices.pairSection.optionalName")}
             <input
               className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2"
               value={pairName}
@@ -195,10 +193,14 @@ export const DevicesPage = () => {
               className="rounded-lg bg-accent px-4 py-2 font-semibold text-white hover:bg-accent/90 disabled:opacity-60"
               disabled={pairDevice.isPending}
             >
-              {pairDevice.isPending ? "Pairing…" : "Pair device"}
+              {pairDevice.isPending
+                ? t("devices.pairSection.submitting")
+                : t("devices.pairSection.submit")}
             </button>
             {pairDevice.error && (
-              <p className="mt-2 text-sm text-red-400">{pairDevice.error.message}</p>
+              <p className="mt-2 text-sm text-red-400">
+                {pairDevice.error.message || t("common.requestFailed")}
+              </p>
             )}
           </div>
         </form>
@@ -207,9 +209,11 @@ export const DevicesPage = () => {
       <section className="rounded-2xl border border-border bg-surface-100 p-6 space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Registered devices</h2>
+            <h2 className="text-lg font-semibold">{t("devices.registered.title")}</h2>
             <p className="text-sm text-muted">
-              {isLoading ? "Loading devices…" : `${devices?.length ?? 0} device(s) configured.`}
+              {isLoading
+                ? t("devices.registered.loading")
+                : t("devices.registered.count", { count: devices?.length ?? 0 })}
             </p>
           </div>
           <button
@@ -218,17 +222,21 @@ export const DevicesPage = () => {
             className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-surface-200"
             disabled={discoverDevices.isPending}
           >
-            {discoverDevices.isPending ? "Scanning…" : "Discover on network"}
+            {discoverDevices.isPending
+              ? t("devices.registered.discoverPending")
+              : t("devices.registered.discoverIdle")}
           </button>
         </div>
 
         {discoverDevices.data && discoverDevices.data.length > 0 && (
           <div className="rounded-lg border border-border p-4 text-sm text-muted">
-            <p className="font-medium text-fg">Discovered screens</p>
+            <p className="font-medium text-fg">{t("devices.registered.discoveredHeading")}</p>
             <ul className="mt-2 space-y-1">
               {discoverDevices.data.map((device) => (
                 <li key={device.screen_id}>
-                  {device.name} · <span className="text-muted">ID:</span> {device.screen_id}
+                  {device.name} ·{" "}
+                  <span className="text-muted">{t("devices.registered.discoveredIdLabel")}</span>{" "}
+                  {device.screen_id}
                 </li>
               ))}
             </ul>
@@ -239,10 +247,10 @@ export const DevicesPage = () => {
           <table className="min-w-full text-left text-sm">
             <thead className="bg-surface-200 text-muted">
               <tr>
-                <th className="px-4 py-2 font-medium">Screen ID</th>
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Offset (s)</th>
-                <th className="px-4 py-2 font-medium">Actions</th>
+                <th className="px-4 py-2 font-medium">{t("devices.table.screenId")}</th>
+                <th className="px-4 py-2 font-medium">{t("devices.table.name")}</th>
+                <th className="px-4 py-2 font-medium">{t("devices.table.offset")}</th>
+                <th className="px-4 py-2 font-medium">{t("devices.table.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -257,14 +265,14 @@ export const DevicesPage = () => {
                       className="text-sm text-accent hover:underline"
                       onClick={() => startEdit(device)}
                     >
-                      Edit
+                      {t("devices.table.edit")}
                     </button>
                     <button
                       type="button"
                       className="text-sm text-red-400 hover:underline"
                       onClick={() => deleteDevice.mutate(device.screen_id)}
                     >
-                      Remove
+                      {t("devices.table.remove")}
                     </button>
                   </td>
                 </tr>
@@ -272,7 +280,7 @@ export const DevicesPage = () => {
               {!devices?.length && !isLoading && (
                 <tr>
                   <td className="px-4 py-6 text-center text-muted" colSpan={4}>
-                    No devices have been registered yet.
+                    {t("devices.table.empty")}
                   </td>
                 </tr>
               )}
@@ -287,19 +295,19 @@ export const DevicesPage = () => {
           >
             <div className="flex items-center justify-between">
               <p className="font-medium">
-                Editing <span className="text-accent">{editingId}</span>
+                {t("devices.editSection.title", { id: editingId ?? "" })}
               </p>
               <button
                 type="button"
                 className="text-sm text-muted hover:text-fg"
                 onClick={() => setEditingId(null)}
               >
-                Cancel
+                {t("devices.editSection.cancel")}
               </button>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               <label className="text-sm font-medium">
-                Screen ID
+                {t("devices.addSection.screenId")}
                 <input
                   className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2"
                   value={editForm.screen_id}
@@ -310,7 +318,7 @@ export const DevicesPage = () => {
                 />
               </label>
               <label className="text-sm font-medium">
-                Name
+                {t("devices.addSection.name")}
                 <input
                   className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2"
                   value={editForm.name}
@@ -321,7 +329,7 @@ export const DevicesPage = () => {
                 />
               </label>
               <label className="text-sm font-medium">
-                Offset (seconds)
+                {t("devices.addSection.offset")}
                 <input
                   type="number"
                   min={0}
@@ -342,7 +350,9 @@ export const DevicesPage = () => {
               className="rounded-lg bg-accent px-4 py-2 font-semibold text-white hover:bg-accent/90 disabled:opacity-60"
               disabled={updateDevice.isPending}
             >
-              {updateDevice.isPending ? "Saving…" : "Save device"}
+              {updateDevice.isPending
+                ? t("devices.editSection.submitting")
+                : t("devices.editSection.submit")}
             </button>
           </form>
         )}
