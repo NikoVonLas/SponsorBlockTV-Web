@@ -51,7 +51,7 @@ docker run -d \
   -e SBTV_AUTH_USERNAME=admin \
   -e SBTV_AUTH_PASSWORD=supersecret \
   -e SBTV_JWT_SECRET=change-me \
-  ghcr.io/dmunozv04/sponsorblocktv-web:latest
+  ghcr.io/nikovonlas/sponsorblocktv-web:latest
 ```
 
 Use `-p 80:8000` instead of `--network host` if host networking is

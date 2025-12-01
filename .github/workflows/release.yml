@@ -151,12 +151,12 @@ jobs:
       working-directory: ${{ github.workspace }}
       run: |-
         current_version=$(hatch version)
-        PYAPP_PROJECT_PATH="${{ github.workspace }}/dist/isponsorblocktv-${current_version}-py3-none-any.whl" hatch -v build -t binary
+        PYAPP_PROJECT_PATH="${{ github.workspace }}/dist/sponsorblocktv_web-${current_version}-py3-none-any.whl" hatch -v build -t binary
 
     - name: Rename binary
       working-directory: ${{ github.workspace }}
       run: |-
-        mv dist/binary/iSponsorBlockTV* dist/binary/iSponsorBlockTV-${{ matrix.job.release_suffix }}
+        mv dist/binary/SponsorBlockTV-Web* dist/binary/SponsorBlockTV-Web-${{ matrix.job.release_suffix }}
 
     - name: Attest build provenance
       uses: actions/attest-build-provenance@v3
