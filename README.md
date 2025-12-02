@@ -74,11 +74,6 @@ unavailable.
 | `SBTV_FRONTEND_DIST` | unset | Absolute path to the built React SPA when running outside Docker. |
 <!-- markdownlint-enable MD013 -->
 
-** Shorts aren't fully supported due to limitations on YouTube's side.
-A single short can be seen by either selecting the "Disconnect" option in the
- warning shown
-or by long pressing the thumbnail to open the menu and clicking play from there
-
 ## Usage
 
 Run SponsorBlockTV Web on any machine with outbound internet access (only
@@ -91,13 +86,6 @@ YouTube TV device settings.
 When the service is running, open `http://<host>/` to reach the React dashboard.
 All API calls originate from the same origin and target `/api/...`, so you only
 need a single exposed port.
-
-### Statistics
-
-The **Stats** tab (and the `/api/stats` endpoint) exposes aggregate viewing
-metrics: videos started, total watch time, number of skipped segments, and the
-time saved by SponsorBlock jumps. Select a device to drill down or keep the
-global view for overall totals.
 
 ### CLI & API
 
@@ -115,6 +103,10 @@ sponsorblocktv-web --help                       # see all CLI flags/options
 - Ad muting cannot work while AirPlay routes audio to another speaker.
 - SSDP discovery requires host networking (Linux).
 Use manual pairing or exposed ports on macOS/Windows.
+- Shorts aren't fully supported due to limitations on YouTube's side.
+A single short can be seen by either selecting the "Disconnect" option in the
+warning shown or by long pressing the thumbnail to open the menu and
+clicking play from there.
 
 ## Libraries Used
 
