@@ -74,6 +74,11 @@ unavailable.
 | `SBTV_FRONTEND_DIST` | unset | Absolute path to the built React SPA when running outside Docker. |
 <!-- markdownlint-enable MD013 -->
 
+** Shorts aren't fully supported due to limitations on YouTube's side.
+A single short can be seen by either selecting the "Disconnect" option in the
+ warning shown
+or by long pressing the thumbnail to open the menu and clicking play from there
+
 ## Usage
 
 Run SponsorBlockTV Web on any machine with outbound internet access (only
