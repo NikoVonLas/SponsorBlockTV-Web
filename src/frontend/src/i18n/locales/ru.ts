@@ -9,6 +9,7 @@ export const ru: TranslationShape = {
       devices: "Устройства",
       channels: "Белый список",
       config: "Конфиг",
+      stats: "Статистика",
     },
     menu: {
       open: "Меню",
@@ -22,6 +23,7 @@ export const ru: TranslationShape = {
     russian: "Русский",
     cancel: "Отмена",
     close: "Закрыть",
+    remove: "Удалить",
     menu: "Меню",
     actions: "Действия",
     requestFailed: "Запрос не выполнен.",
@@ -54,7 +56,7 @@ export const ru: TranslationShape = {
       title: "Привязка по PIN",
       description: "Введите 12‑значный код из приложения YouTube TV.",
       pairingCode: "Код привязки",
-      pairingPlaceholder: "1234 5678 9012",
+      pairingPlaceholder: "123 456 789 012",
       optionalName: "Доп. имя",
       submitting: "Привязываем…",
       submit: "Привязать устройство",
@@ -73,15 +75,61 @@ export const ru: TranslationShape = {
       name: "Имя",
       offset: "Смещение (с)",
       actions: "Действия",
-      edit: "Изменить",
+      edit: "Редактировать",
       remove: "Удалить",
       empty: "Еще ни одного устройства не зарегистрировано.",
     },
-    editSection: {
-      title: "Редактирование {id}",
-      cancel: "Отмена",
-      submitting: "Сохраняем…",
-      submit: "Сохранить устройство",
+    overrides: {
+      title: "Редактирование {name}",
+      general: {
+        title: "Общие сведения",
+        description: "Измените идентификатор, имя экрана или смещение пропуска.",
+        screenId: "ID экрана",
+        name: "Отображаемое имя",
+        offset: "Смещение (сек.)",
+      },
+      automation: {
+        title: "Переопределение автоматизации",
+        description: "Управляйте переключателями только для этого устройства.",
+        inherit: "Как глобально ({value})",
+      },
+      optionEnabled: "Включено",
+      optionDisabled: "Выключено",
+      skipCategories: {
+        title: "Категории пропуска",
+        usingGlobal: "Используются глобальные категории: {categories}",
+        customDescription: "Выберите категории, которые нужно пропускать на этом устройстве.",
+        enable: "Настроить категории",
+        disable: "Использовать глобальные",
+      },
+      whitelist: {
+        title: "Белый список каналов",
+        usingGlobal: "Используется глобальный список (каналов: {count})",
+        customDescription: "Только эти каналы будут в белом списке на этом устройстве.",
+        enable: "Настроить список",
+        disable: "Использовать глобальный список",
+        importGlobal: "Импортировать глобальный список",
+        empty: "Пока нет пользовательских каналов.",
+        channelId: "ID канала",
+        channelName: "Имя (опционально)",
+        addManual: "Добавить канал",
+        apiKeyMissing: "Добавьте YouTube API key в разделе Конфиг → Основные настройки, чтобы включить поиск.",
+        search: {
+          title: "Поиск на YouTube",
+          description: "Используйте YouTube Data API, чтобы быстро добавить каналы в этот список.",
+          placeholder: "Поиск каналов",
+          submit: "Искать",
+          submitting: "Ищем…",
+          empty: "Каналы не найдены.",
+          add: "Добавить в список",
+        },
+      },
+      actions: {
+        cancel: "Отмена",
+        save: "Сохранить",
+        saving: "Сохраняем…",
+      },
+      none: "Нет",
     },
   },
   channels: {
@@ -103,6 +151,9 @@ export const ru: TranslationShape = {
       placeholder: "Поиск каналов",
       submitting: "Ищем…",
       submit: "Поиск",
+      apiKeyMissingTitle: "Нужен ключ YouTube API",
+      apiKeyMissingDescription:
+        "Добавьте ключ в Конфиг → Основные настройки, чтобы включить поиск каналов.",
       table: {
         name: "Название",
         subscribers: "Подписчики",
@@ -128,6 +179,14 @@ export const ru: TranslationShape = {
     title: "Глобальные настройки",
     subtitle: "Настройте поведение SponsorBlockTV для всех устройств.",
     error: "Ошибка при выполнении запроса конфигурации.",
+    general: {
+      title: "Основные настройки",
+      joinName: "Имя устройства",
+      apiKey: "Ключ YouTube API",
+      apiKeyHint: "Нужен для поиска каналов.",
+      minimumSkip: "Минимальная длина пропуска (сек.)",
+      saving: "Сохраняем…",
+    },
     automation: {
       title: "Поведение автоматизации",
       fields: {
@@ -141,7 +200,7 @@ export const ru: TranslationShape = {
         },
         skip_count_tracking: {
           label: "Считать пропуски",
-          description: "Записывать количество пропущенных сегментов для диагностики.",
+          description: "Отправлять уведомление на SponsorBlock при каждом пропуске, чтобы авторы видели использование.",
         },
         auto_play: {
           label: "Автоплей",
@@ -153,18 +212,79 @@ export const ru: TranslationShape = {
         },
       },
     },
-    identity: {
-      title: "Идентификация и минимумы",
-      joinName: "Имя подключения",
-      apiKey: "Ключ YouTube API",
-      apiKeyHint: "Нужен для поиска каналов. Хранится только на вашем хосте.",
-      minimumSkip: "Минимальная длина пропуска (сек.)",
-      submitting: "Сохраняем…",
-      submit: "Сохранить изменения",
-    },
     skipCategories: {
       title: "Категории пропуска",
-      description: "Сегменты SponsorBlock с выбранными тегами будут пропущены.",
+      empty: "Категории пока не загружены. Попробуйте обновить страницу.",
+      fallbackDescription: "Категория SponsorBlock без отдельного описания.",
+      items: {
+        sponsor: {
+          label: "Спонсорские вставки",
+          description: "Рекламные интеграции и оплаченные упоминания.",
+        },
+        selfpromo: {
+          label: "Самореклама",
+          description: "Призывы купить мерч, подписаться на соцсети или оформить подписку.",
+        },
+        intro: {
+          label: "Интро",
+          description: "Заставки и вступления до основного контента.",
+        },
+        outro: {
+          label: "Аутро",
+          description: "Концовки, титры и финальные экраны.",
+        },
+        music_offtopic: {
+          label: "Несвязанные музыкальные вставки",
+          description: "Музыка, не относящаяся к теме ролика.",
+        },
+        interaction: {
+          label: "Призывы к взаимодействию",
+          description: "Лайки, подписки, комментарии и другие обращения к зрителю.",
+        },
+        exclusive_access: {
+          label: "Эксклюзивы",
+          description: "Реклама Patreon, платных подписок или закрытого контента.",
+        },
+        poi_highlight: {
+          label: "Точки интереса",
+          description:
+            "Отмечает конкретную точку интереса в ролике (время начала и конца совпадают). Используется только для POI action type.",
+        },
+        preview: {
+          label: "Превью",
+          description: "Тизеры и анонсы будущих видео.",
+        },
+        filler: {
+          label: "Филлер",
+          description: "Паузы, заставки ожидания и повторяющиеся фрагменты.",
+        },
+      },
+    },
+  },
+  stats: {
+    title: "Статистика просмотра",
+    subtitle: "Сводка по всем устройствам и отдельным экранам.",
+    loading: "Загружаем статистику…",
+    empty: "Пока нет данных для отображения.",
+    global: "Глобальные итоги",
+    perDevice: "По устройствам",
+    activeDevices: {
+      title: "Сейчас онлайн ({count})",
+      empty: "Сейчас ни одно устройство не подключено.",
+    },
+    deviceFilter: "Фильтр",
+    allDevices: "Все устройства",
+    selectHint: "Выберите конкретное устройство сверху или изучите таблицу ниже.",
+    deviceColumn: "Устройство",
+    categoryBreakdown: "Категории сегментов",
+    noCategories: "Еще ничего не пропускали.",
+    online: "Онлайн",
+    offline: "Оффлайн",
+    metrics: {
+      videos_watched: "Просмотрено видео",
+      watch_time_seconds: "Время просмотра",
+      segments_skipped: "Пропущено сегментов",
+      time_saved_seconds: "Сэкономлено времени",
     },
   },
 };

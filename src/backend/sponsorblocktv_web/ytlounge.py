@@ -1,17 +1,87 @@
 import asyncio
+import inspect
 import json
 import sys
-from typing import Any, List
+from typing import Any, Dict, List, Optional
 
 import pyytlounge
 from aiohttp import ClientSession
 
-from pyytlounge.wrapper import NotLinkedException, api_base, as_aiter, Dict
+from pyytlounge.models import State as PlaybackStateEnum
+from pyytlounge.wrapper import NotLinkedException, api_base, as_aiter
 from uuid import uuid4
 
 from .constants import youtube_client_blacklist
 
 create_task = asyncio.create_task
+
+
+class _PlaybackStateSnapshot:
+    """Lightweight playback state compatible with the legacy interface."""
+
+    FLOAT_FIELDS = {"currentTime", "duration", "seekableStartTime", "seekableEndTime", "loadedTime"}
+
+    def __init__(self) -> None:
+        self.state: PlaybackStateEnum = PlaybackStateEnum.Stopped
+        self.videoId: Optional[str] = None
+        self.currentTime: float = 0.0
+        self.duration: float = 0.0
+        self._extra: Dict[str, Any] = {}
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self._extra:
+            return self._extra[name]
+        raise AttributeError(name)
+
+    def update_from_payload(self, payload: Dict[str, Any]) -> bool:
+        changed = False
+        if "videoId" in payload:
+            changed |= self._assign("videoId", payload["videoId"])
+        if "currentTime" in payload:
+            changed |= self._assign_float("currentTime", payload["currentTime"])
+        if "duration" in payload:
+            changed |= self._assign_float("duration", payload["duration"])
+        if "state" in payload:
+            changed |= self._assign_state(payload["state"])
+
+        for key, value in payload.items():
+            if key in {"videoId", "currentTime", "duration", "state"}:
+                continue
+            if key in self.FLOAT_FIELDS:
+                changed |= self._assign_float(key, value)
+            else:
+                changed |= self._assign(key, value)
+        return changed
+
+    def _assign(self, attr: str, value: Any) -> bool:
+        if attr in {"videoId", "currentTime", "duration"}:
+            current = getattr(self, attr)
+            if current == value:
+                return False
+            setattr(self, attr, value)
+            return True
+        current = self._extra.get(attr, object())
+        if current == value:
+            return False
+        self._extra[attr] = value
+        return True
+
+    def _assign_float(self, attr: str, raw_value: Any) -> bool:
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            value = 0.0
+        return self._assign(attr, value)
+
+    def _assign_state(self, raw_state: Any) -> bool:
+        try:
+            state = PlaybackStateEnum.parse(str(raw_state))
+        except Exception:
+            state = PlaybackStateEnum.Stopped
+        if self.state == state:
+            return False
+        self.state = state
+        return True
 
 
 class YtLoungeApi(pyytlounge.YtLoungeApi):
@@ -41,6 +111,10 @@ class YtLoungeApi(pyytlounge.YtLoungeApi):
             self.skip_ads = config.skip_ads
             self.auto_play = config.auto_play
         self._command_mutex = asyncio.Lock()
+        self._playback_state = _PlaybackStateSnapshot()
+        self.state = self._playback_state
+        self._state_version = 0
+        self.state_update = self._state_version
 
     # Ensures that we still are subscribed to the lounge
     async def _watchdog(self):
@@ -96,16 +170,40 @@ class YtLoungeApi(pyytlounge.YtLoungeApi):
             except (asyncio.CancelledError, Exception):
                 pass
 
-        self.subscribe_task = asyncio.create_task(super().subscribe(callback))
+        subscribe_fn = super().subscribe
+        params = list(inspect.signature(subscribe_fn).parameters.values())
+        accepts_callback = len(params) > 1
+        self.logger.info("Launching subscribe coroutine (accepts_callback=%s)", accepts_callback)
+        if accepts_callback:
+            coro = subscribe_fn(callback)
+        else:
+            coro = subscribe_fn()
+        self.subscribe_task = asyncio.create_task(coro)
         self.subscribe_task_watchdog = asyncio.create_task(self._watchdog())
         return self.subscribe_task
 
+    def _merge_playback_state(self, event_type: str, args: List[Any]) -> bool:
+        if event_type not in {"nowPlaying", "onStateChange"}:
+            return False
+        if not args:
+            return False
+        payload = args[0]
+        if not isinstance(payload, dict):
+            return False
+        changed = self._playback_state.update_from_payload(payload)
+        if changed:
+            self._state_version += 1
+            self.state_update = self._state_version
+        return changed
+
     # Process a lounge subscription event
     # skipcq: PY-R1000
-    def _process_event(self, event_type: str, args: List[Any]):
+    async def _process_event(self, event_type: str, args: List[Any]):
         self.logger.debug(f"process_event({event_type}, {args})")
         # Update last event time for the watchdog
         self.last_event_time = asyncio.get_event_loop().time()
+        pre_state_update = getattr(self, "state_update", 0)
+        self._merge_playback_state(event_type, args)
 
         # A bunch of events useful to detect ads playing,
         # and the next video before it starts playing
@@ -193,7 +291,25 @@ class YtLoungeApi(pyytlounge.YtLoungeApi):
             self.playback_speed = float(data.get("playbackSpeed", "1"))
             create_task(self.get_now_playing())
 
-        super()._process_event(event_type, args)
+        parent_result = super()._process_event(event_type, args)
+        if inspect.isawaitable(parent_result):
+            await parent_result
+        state_update = getattr(self, "state_update", None)
+        should_dispatch = state_update is not None and state_update != pre_state_update
+        if not should_dispatch and event_type in {"onStateChange", "nowPlaying"}:
+            should_dispatch = True
+        if self.callback and should_dispatch:
+            playback_state = getattr(self, "state", None)
+            if playback_state is None:
+                self.logger.warning("Got %s but playback state object is missing", event_type)
+                return
+            self.logger.debug(
+                "Dispatching playback callback (event=%s, state_update=%s->%s)",
+                event_type,
+                pre_state_update,
+                state_update,
+            )
+            await self.callback(playback_state)
 
     # Set the volume to a specific value (0-100)
     async def set_volume(self, volume: int) -> None:
@@ -295,7 +411,11 @@ class YtLoungeApi(pyytlounge.YtLoungeApi):
                     return False
                 lines = text.splitlines()
                 async for events in self._parse_event_chunks(as_aiter(lines)):
-                    self._process_events(events)
+                    result = self._process_events(events)
+                    if result is None:
+                        continue
+                    if asyncio.iscoroutine(result) or isinstance(result, asyncio.Future):
+                        await result
                 self._command_offset = 1
                 return self.connected()
             except:

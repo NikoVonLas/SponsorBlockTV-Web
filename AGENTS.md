@@ -4,11 +4,12 @@
 
 Backend sources live under `src/backend/sponsorblocktv_web/`, with `main.py`
 powering the automation service, `helpers.py` providing the CLI entrypoints, and
-`api_app.py` exposing the Litestar API. CLI entry points reside in
-`src/backend/main.py` and `src/backend/sponsorblocktv_web/__main__.py`. The
-React SPA (JWT login + configuration UI) is in `src/frontend/`. Runtime
-configuration is persisted in `data/config.db`; legacy `config.json` files
-import automatically via the startup flow. Place new automated tests in `tests/`.
+`api_app.py` exposing the Litestar API (including `/api/stats`). CLI entry
+points reside in `src/backend/main.py` and
+`src/backend/sponsorblocktv_web/__main__.py`. The React SPA (login, devices,
+stats dashboard, config) lives in `src/frontend/`. Runtime configuration
+persists in `data/config.db`; legacy `config.json` files import automatically.
+Place new automated tests in `tests/`.
 
 ## Build, Test, and Development Commands
 
@@ -53,3 +54,12 @@ from the `SBTV_AUTH_*` environment variables; keep them out of version control
 and sample them through `.env.example` style notes if needed. Configuration
 templates belong in `config.json.template`, while live data stays in
 `data/config.db`.
+
+## Dependency Notes
+
+The automation service depends on `pyytlounge==3.2.0`. Older virtualenvs that
+still have `pyytlounge 2.x` will surface `TypeError: object NoneType can't be used
+in 'await' expression` inside the lounge connect loop because the upstream
+`_process_events` signature changed from async to sync. Always `pip install -r
+requirements.txt` (or rebuild the Docker image) after pulling backend changes to
+ensure the runtime matches the expected dependency versions.

@@ -4,6 +4,7 @@ import {
   useAddChannelMutation,
   useChannelSearchMutation,
   useChannelsQuery,
+  useConfigQuery,
   useDeleteChannelMutation,
 } from "../api/hooks";
 import { useTranslation } from "../i18n";
@@ -11,6 +12,7 @@ import { Modal } from "../components/Modal";
 
 export const ChannelsPage = () => {
   const { data: channels, isLoading, error } = useChannelsQuery();
+  const { data: config } = useConfigQuery();
   const addChannel = useAddChannelMutation();
   const deleteChannel = useDeleteChannelMutation();
   const searchChannels = useChannelSearchMutation();
@@ -20,6 +22,7 @@ export const ChannelsPage = () => {
   const [newChannelName, setNewChannelName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const hasApiKey = Boolean(config?.apikey?.trim());
 
   const handleAdd = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -38,7 +41,7 @@ export const ChannelsPage = () => {
 
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!searchQuery.trim()) return;
+    if (!searchQuery.trim() || !hasApiKey) return;
     searchChannels.mutate(searchQuery.trim());
   };
 
@@ -64,67 +67,82 @@ export const ChannelsPage = () => {
           <h2 className="text-lg font-semibold">{t("channels.search.title")}</h2>
           <p className="text-sm text-muted">{t("channels.search.description")}</p>
         </div>
-        <form className="flex flex-col gap-4 md:flex-row" onSubmit={handleSearch}>
-          <input
-            className="flex-1 rounded-lg border border-border bg-canvas px-3 py-2"
-            placeholder={t("channels.search.placeholder")}
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
-          <button
-            type="submit"
-            className="rounded-lg border border-border px-4 py-2 font-semibold hover:bg-surface-200 disabled:opacity-60"
-            disabled={searchChannels.isPending}
-          >
-            {searchChannels.isPending
-              ? t("channels.search.submitting")
-              : t("channels.search.submit")}
-          </button>
-        </form>
-        {searchChannels.error && (
-          <p className="text-sm text-red-400">
-            {searchChannels.error.message || t("common.requestFailed")}
-          </p>
-        )}
-        {searchChannels.data && (
-          <div className="rounded-xl border border-border">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-surface-200 text-muted">
-                <tr>
-                  <th className="px-4 py-2 font-medium">{t("channels.search.table.name")}</th>
-                  <th className="px-4 py-2 font-medium">
-                    {t("channels.search.table.subscribers")}
-                  </th>
-                  <th className="px-4 py-2 font-medium">{t("channels.search.table.actions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {searchChannels.data.map((channel) => (
-                  <tr key={channel.id} className="border-t border-border">
-                    <td className="px-4 py-3">
-                      <p className="font-medium">{channel.name}</p>
-                      <p className="text-xs text-muted">{channel.id}</p>
-                    </td>
-                    <td className="px-4 py-3">{channel.subscriber_count}</td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        className="text-sm text-accent hover:underline"
-                        onClick={() =>
-                          addChannel.mutate({
-                            channel_id: channel.id,
-                            name: channel.name,
-                          })
-                        }
-                        disabled={addChannel.isPending}
-                      >
-                        {t("channels.search.table.add")}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {hasApiKey ? (
+          <>
+            <form className="flex flex-col gap-4 md:flex-row" onSubmit={handleSearch}>
+              <input
+                className="flex-1 rounded-lg border border-border bg-canvas px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/60"
+                placeholder={t("channels.search.placeholder")}
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+              <button
+                type="submit"
+                className="rounded-lg border border-border px-4 py-2 font-semibold hover:bg-surface-200 disabled:opacity-60"
+                disabled={searchChannels.isPending}
+              >
+                {searchChannels.isPending
+                  ? t("channels.search.submitting")
+                  : t("channels.search.submit")}
+              </button>
+            </form>
+            {searchChannels.error && (
+              <p className="text-sm text-red-400">
+                {searchChannels.error.message || t("common.requestFailed")}
+              </p>
+            )}
+            {searchChannels.data && (
+              <div className="rounded-xl border border-border">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-surface-200 text-muted">
+                    <tr>
+                      <th className="px-4 py-2 font-medium">
+                        {t("channels.search.table.name")}
+                      </th>
+                      <th className="px-4 py-2 font-medium">
+                        {t("channels.search.table.subscribers")}
+                      </th>
+                      <th className="px-4 py-2 font-medium">
+                        {t("channels.search.table.actions")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {searchChannels.data.map((channel) => (
+                      <tr key={channel.id} className="border-t border-border">
+                        <td className="px-4 py-3">
+                          <p className="font-medium">{channel.name}</p>
+                          <p className="text-xs text-muted">{channel.id}</p>
+                        </td>
+                        <td className="px-4 py-3">{channel.subscriber_count}</td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            className="text-sm text-accent hover:underline"
+                            onClick={() =>
+                              addChannel.mutate({
+                                channel_id: channel.id,
+                                name: channel.name,
+                              })
+                            }
+                            disabled={addChannel.isPending}
+                          >
+                            {t("channels.search.table.add")}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="rounded-lg border border-border bg-surface-200 px-4 py-3 text-sm text-muted">
+            <p className="font-semibold text-fg">
+              {t("channels.search.apiKeyMissingTitle")}
+            </p>
+            <p className="mt-1">{t("channels.search.apiKeyMissingDescription")}</p>
           </div>
         )}
       </section>
@@ -196,7 +214,7 @@ export const ChannelsPage = () => {
           <label className="text-sm font-medium">
             {t("channels.manual.channelId")}
             <input
-              className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2"
+              className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/60"
               value={newChannelId}
               onChange={(event) => setNewChannelId(event.target.value)}
               required
@@ -205,7 +223,7 @@ export const ChannelsPage = () => {
           <label className="text-sm font-medium">
             {t("channels.manual.friendlyName")}
             <input
-              className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2"
+              className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/60"
               value={newChannelName}
               onChange={(event) => setNewChannelName(event.target.value)}
             />

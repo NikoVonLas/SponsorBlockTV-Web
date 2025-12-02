@@ -10,11 +10,12 @@ type ModalProps = {
 };
 
 export const Modal = ({ title, onClose, children, closeLabel = "Close", className }: ModalProps) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center">
-    <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden="true" />
+  <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-10">
+    <div className="fixed inset-0 bg-black/60" onClick={onClose} aria-hidden="true" />
     <div
       className={clsx(
-        "relative w-full max-w-xl rounded-2xl border border-border bg-surface-100 p-6 shadow-2xl",
+        "relative z-10 w-full max-w-2xl rounded-2xl border border-border bg-surface-100 p-6 shadow-2xl",
+        "max-h-[calc(100vh-4rem)] overflow-y-auto",
         className,
       )}
       role="dialog"

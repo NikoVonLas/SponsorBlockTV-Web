@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
 import {
   useConfigQuery,
   useSkipCategoryOptions,
@@ -47,6 +46,63 @@ const booleanFieldConfigs: BooleanField[] = [
   },
 ];
 
+const skipCategoryFieldConfigs: Array<{
+  value: string;
+  labelKey: TranslationKey;
+  descriptionKey: TranslationKey;
+}> = [
+  {
+    value: "sponsor",
+    labelKey: "config.skipCategories.items.sponsor.label",
+    descriptionKey: "config.skipCategories.items.sponsor.description",
+  },
+  {
+    value: "selfpromo",
+    labelKey: "config.skipCategories.items.selfpromo.label",
+    descriptionKey: "config.skipCategories.items.selfpromo.description",
+  },
+  {
+    value: "intro",
+    labelKey: "config.skipCategories.items.intro.label",
+    descriptionKey: "config.skipCategories.items.intro.description",
+  },
+  {
+    value: "outro",
+    labelKey: "config.skipCategories.items.outro.label",
+    descriptionKey: "config.skipCategories.items.outro.description",
+  },
+  {
+    value: "music_offtopic",
+    labelKey: "config.skipCategories.items.music_offtopic.label",
+    descriptionKey: "config.skipCategories.items.music_offtopic.description",
+  },
+  {
+    value: "interaction",
+    labelKey: "config.skipCategories.items.interaction.label",
+    descriptionKey: "config.skipCategories.items.interaction.description",
+  },
+  {
+    value: "exclusive_access",
+    labelKey: "config.skipCategories.items.exclusive_access.label",
+    descriptionKey: "config.skipCategories.items.exclusive_access.description",
+  },
+  {
+    value: "poi_highlight",
+    labelKey: "config.skipCategories.items.poi_highlight.label",
+    descriptionKey: "config.skipCategories.items.poi_highlight.description",
+  },
+  {
+    value: "preview",
+    labelKey: "config.skipCategories.items.preview.label",
+    descriptionKey: "config.skipCategories.items.preview.description",
+  },
+  {
+    value: "filler",
+    labelKey: "config.skipCategories.items.filler.label",
+    descriptionKey: "config.skipCategories.items.filler.description",
+  },
+];
+
 export const ConfigPage = () => {
   const { data: config, isLoading, error } = useConfigQuery();
   const { data: skipCategoryOptions } = useSkipCategoryOptions();
@@ -56,6 +112,13 @@ export const ConfigPage = () => {
   const [joinName, setJoinName] = useState("");
   const [apikey, setApikey] = useState("");
   const [minSkip, setMinSkip] = useState(1);
+  type FieldKey = "join_name" | "apikey" | "minimum_skip_length";
+  type FieldStatus = "idle" | "saving" | "saved" | "error";
+  const [fieldStatus, setFieldStatus] = useState<Record<FieldKey, FieldStatus>>({
+    join_name: "idle",
+    apikey: "idle",
+    minimum_skip_length: "idle",
+  });
 
   useEffect(() => {
     if (config) {
@@ -69,19 +132,84 @@ export const ConfigPage = () => {
     () => new Set(config?.skip_categories ?? []),
     [config?.skip_categories],
   );
+  const skipCategoryOptionValues = useMemo(
+    () => new Set((skipCategoryOptions ?? []).map((option) => option.value)),
+    [skipCategoryOptions],
+  );
+  const orderedCategoryFields = useMemo(
+    () => skipCategoryFieldConfigs.filter((field) => skipCategoryOptionValues.has(field.value)),
+    [skipCategoryOptionValues],
+  );
+  const extraCategoryOptions = useMemo(
+    () =>
+      (skipCategoryOptions ?? []).filter(
+        (option) => !skipCategoryFieldConfigs.some((field) => field.value === option.value),
+      ),
+    [skipCategoryOptions],
+  );
 
   const handleToggle = (field: BooleanField["key"], value: boolean) => {
     const patch: ConfigUpdateRequest = { [field]: value } as ConfigUpdateRequest;
     updateMutation.mutate(patch);
   };
 
-  const handleIdentitySubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    updateMutation.mutate({
-      join_name: joinName,
-      apikey,
-      minimum_skip_length: Number(minSkip),
-    });
+  const updateFieldState = (key: FieldKey, status: FieldStatus) => {
+    setFieldStatus((prev) => ({ ...prev, [key]: status }));
+  };
+
+  const handleGeneralUpdate = async (
+    payload: ConfigUpdateRequest,
+    fieldKey: FieldKey,
+  ): Promise<void> => {
+    updateFieldState(fieldKey, "saving");
+    try {
+      await updateMutation.mutateAsync(payload);
+      updateFieldState(fieldKey, "saved");
+      setTimeout(() => updateFieldState(fieldKey, "idle"), 2000);
+    } catch {
+      updateFieldState(fieldKey, "error");
+    }
+  };
+
+  const handleJoinNameBlur = async () => {
+    if (!config) return;
+    const trimmed = joinName.trim();
+    if (!trimmed || trimmed === config.join_name) {
+      setJoinName(trimmed);
+      return;
+    }
+    await handleGeneralUpdate({ join_name: trimmed }, "join_name");
+  };
+
+  const handleApiKeyBlur = async () => {
+    if (!config || apikey === config.apikey) {
+      return;
+    }
+    await handleGeneralUpdate({ apikey }, "apikey");
+  };
+
+  const handleMinimumSkipBlur = async () => {
+    if (!config) return;
+    const parsed = Number(minSkip);
+    if (Number.isNaN(parsed) || parsed === config.minimum_skip_length) {
+      setMinSkip(config.minimum_skip_length);
+      return;
+    }
+    await handleGeneralUpdate({ minimum_skip_length: parsed }, "minimum_skip_length");
+  };
+
+  const fieldStatusLabel = (key: FieldKey) => {
+    const state = fieldStatus[key];
+    if (state === "saving") {
+      return <span className="text-xs text-muted">{t("config.general.saving")}</span>;
+    }
+    if (state === "saved") {
+      return <span className="text-xs text-green-300">{t("common.saved")}</span>;
+    }
+    if (state === "error") {
+      return <span className="text-xs text-red-400">{t("common.requestFailed")}</span>;
+    }
+    return null;
   };
 
   const handleCategoryToggle = (value: string) => {
@@ -110,6 +238,53 @@ export const ConfigPage = () => {
       )}
 
       <section className="rounded-2xl border border-border bg-surface-100 p-6">
+        <h2 className="text-lg font-semibold">{t("config.general.title")}</h2>
+        <div className="mt-4 flex flex-col gap-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {t("config.general.joinName")}
+              <input
+                className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/60"
+                value={joinName}
+                onChange={(event) => setJoinName(event.target.value)}
+                onBlur={handleJoinNameBlur}
+                required
+              />
+            </label>
+            {fieldStatusLabel("join_name")}
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {t("config.general.apiKey")}
+              <input
+                className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/60"
+                value={apikey}
+                onChange={(event) => setApikey(event.target.value)}
+                onBlur={handleApiKeyBlur}
+              />
+              <span className="text-xs text-muted">{t("config.general.apiKeyHint")}</span>
+            </label>
+            {fieldStatusLabel("apikey")}
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {t("config.general.minimumSkip")}
+              <input
+                type="number"
+                min={0}
+                className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/60"
+                value={minSkip}
+                onChange={(event) => setMinSkip(Number(event.target.value))}
+                onBlur={handleMinimumSkipBlur}
+                required
+              />
+            </label>
+            {fieldStatusLabel("minimum_skip_length")}
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-border bg-surface-100 p-6">
         <h2 className="text-lg font-semibold">{t("config.automation.title")}</h2>
         <div className="mt-4 divide-y divide-border">
           {booleanFieldConfigs.map((field) => (
@@ -133,75 +308,45 @@ export const ConfigPage = () => {
       </section>
 
       <section className="rounded-2xl border border-border bg-surface-100 p-6">
-        <h2 className="text-lg font-semibold">{t("config.identity.title")}</h2>
-        <form className="mt-4 grid gap-6 md:grid-cols-2" onSubmit={handleIdentitySubmit}>
-          <label className="text-sm font-medium">
-            {t("config.identity.joinName")}
-            <input
-              className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/60"
-              value={joinName}
-              onChange={(event) => setJoinName(event.target.value)}
-              required
-            />
-          </label>
-          <label className="text-sm font-medium md:col-span-2">
-            {t("config.identity.apiKey")}
-            <input
-              className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/60"
-              value={apikey}
-              onChange={(event) => setApikey(event.target.value)}
-            />
-            <span className="text-xs text-muted">
-              {t("config.identity.apiKeyHint")}
-            </span>
-          </label>
-          <label className="text-sm font-medium max-w-xs">
-            {t("config.identity.minimumSkip")}
-            <input
-              type="number"
-              min={0}
-              className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/60"
-              value={minSkip}
-              onChange={(event) => setMinSkip(Number(event.target.value))}
-              required
-            />
-          </label>
-          <div className="md:col-span-2 flex items-center gap-3">
-            <button
-              type="submit"
-              className="rounded-lg bg-accent px-4 py-2 font-semibold text-white hover:bg-accent/90 disabled:opacity-60"
-              disabled={updateMutation.isPending}
-            >
-              {updateMutation.isPending
-                ? t("config.identity.submitting")
-                : t("config.identity.submit")}
-            </button>
-            {updateMutation.isSuccess && (
-              <span className="text-sm text-green-300">{t("common.saved")}</span>
-            )}
-          </div>
-        </form>
-      </section>
-
-      <section className="rounded-2xl border border-border bg-surface-100 p-6">
         <h2 className="text-lg font-semibold">{t("config.skipCategories.title")}</h2>
-        <p className="text-sm text-muted">{t("config.skipCategories.description")}</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {(skipCategoryOptions ?? []).map((option) => (
-            <label
-              key={option.value}
-              className="flex items-center gap-3 rounded-lg border border-border px-3 py-2"
-            >
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-accent"
-                checked={selectedCategories.has(option.value)}
-                onChange={() => handleCategoryToggle(option.value)}
-              />
-              <span>{option.label}</span>
-            </label>
-          ))}
-        </div>
+        <div className="mt-4 divide-y divide-border">
+          {orderedCategoryFields.map((field) => (
+              <label
+                key={field.value}
+                className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0 md:flex-row md:items-center md:justify-between"
+              >
+                <div>
+                  <p className="font-medium">{t(field.labelKey)}</p>
+                  <p className="text-sm text-muted">{t(field.descriptionKey)}</p>
+                </div>
+                <input
+                  type="checkbox"
+                  className="h-6 w-6 accent-accent"
+                  checked={selectedCategories.has(field.value)}
+                  onChange={() => handleCategoryToggle(field.value)}
+                />
+              </label>
+            ))}
+            {extraCategoryOptions.map((option) => (
+              <label
+                key={option.value}
+                className="flex flex-col gap-2 p-4 md:flex-row md:items-center md:justify-between"
+              >
+                <div>
+                  <p className="font-medium">{option.label}</p>
+                  <p className="text-sm text-muted">
+                    {t("config.skipCategories.fallbackDescription")}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 accent-accent"
+                  checked={selectedCategories.has(option.value)}
+                  onChange={() => handleCategoryToggle(option.value)}
+                />
+              </label>
+            ))}
+          </div>
       </section>
     </div>
   );

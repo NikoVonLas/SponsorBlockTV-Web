@@ -7,6 +7,7 @@ export const en = {
       devices: "Devices",
       channels: "Whitelist",
       config: "Config",
+      stats: "Stats",
     },
     menu: {
       open: "Menu",
@@ -20,6 +21,7 @@ export const en = {
     russian: "Russian",
     cancel: "Cancel",
     close: "Close",
+    remove: "Remove",
     menu: "Menu",
     actions: "Actions",
     requestFailed: "Request failed.",
@@ -52,7 +54,7 @@ export const en = {
       title: "Pair from PIN",
       description: "Enter the 12-digit pairing code displayed on your YouTube TV app.",
       pairingCode: "Pairing code",
-      pairingPlaceholder: "1234 5678 9012",
+      pairingPlaceholder: "123 456 789 012",
       optionalName: "Optional name",
       submitting: "Pairing…",
       submit: "Pair device",
@@ -75,11 +77,57 @@ export const en = {
       remove: "Remove",
       empty: "No devices have been registered yet.",
     },
-    editSection: {
-      title: "Editing {id}",
-      cancel: "Cancel",
-      submitting: "Saving…",
-      submit: "Save device",
+    overrides: {
+      title: "Edit {name}",
+      general: {
+        title: "Device details",
+        description: "Update this screen’s identifier, label, or skip offset.",
+        screenId: "Screen ID",
+        name: "Display name",
+        offset: "Offset (seconds)",
+      },
+      automation: {
+        title: "Automation overrides",
+        description: "Override automation toggles for this device only.",
+        inherit: "Use global ({value})",
+      },
+      optionEnabled: "Enabled",
+      optionDisabled: "Disabled",
+      skipCategories: {
+        title: "Skip categories",
+        usingGlobal: "Using global categories: {categories}",
+        customDescription: "Select which categories should be skipped on this device.",
+        enable: "Customize categories",
+        disable: "Use global categories",
+      },
+      whitelist: {
+        title: "Channel whitelist",
+        usingGlobal: "Using global whitelist ({count} channel(s))",
+        customDescription: "Only these channels are exempt from skipping on this device.",
+        enable: "Customize whitelist",
+        disable: "Use global whitelist",
+        importGlobal: "Import global list",
+        empty: "No custom channels yet.",
+        channelId: "Channel ID",
+        channelName: "Friendly name",
+        addManual: "Add channel",
+        apiKeyMissing: "Add a YouTube API key under Config → General to enable search here.",
+        search: {
+          title: "Search YouTube",
+          description: "Find channels via the YouTube Data API and add them to this whitelist.",
+          placeholder: "Search for channels",
+          submit: "Search",
+          submitting: "Searching…",
+          empty: "No channels matched your query.",
+          add: "Add to whitelist",
+        },
+      },
+      actions: {
+        cancel: "Cancel",
+        save: "Save changes",
+        saving: "Saving…",
+      },
+      none: "None",
     },
   },
   channels: {
@@ -101,6 +149,9 @@ export const en = {
       placeholder: "Search for channels",
       submitting: "Searching…",
       submit: "Search",
+      apiKeyMissingTitle: "YouTube API key required",
+      apiKeyMissingDescription:
+        "Add your API key under Config → General settings to enable channel search.",
       table: {
         name: "Name",
         subscribers: "Subscribers",
@@ -126,6 +177,14 @@ export const en = {
     title: "Global configuration",
     subtitle: "Tweak how SponsorBlockTV behaves across every paired device.",
     error: "Configuration request failed.",
+    general: {
+      title: "General settings",
+      joinName: "Device name",
+      apiKey: "YouTube API key",
+      apiKeyHint: "Required for channel search.",
+      minimumSkip: "Minimum skip length (seconds)",
+      saving: "Saving…",
+    },
     automation: {
       title: "Automation behaviour",
       fields: {
@@ -139,7 +198,7 @@ export const en = {
         },
         skip_count_tracking: {
           label: "Track skip counts",
-          description: "Record how many segments were skipped for diagnostics.",
+          description: "Report each skipped segment back to SponsorBlock so contributors see their usage.",
         },
         auto_play: {
           label: "Auto play",
@@ -151,18 +210,79 @@ export const en = {
         },
       },
     },
-    identity: {
-      title: "Identity & minimums",
-      joinName: "Join name",
-      apiKey: "YouTube API key",
-      apiKeyHint: "Required for channel search. Stored only on your host.",
-      minimumSkip: "Minimum skip length (seconds)",
-      submitting: "Saving…",
-      submit: "Save changes",
-    },
     skipCategories: {
       title: "Skip categories",
-      description: "SponsorBlock segments tagged with the selected categories will be skipped.",
+      empty: "No categories are available right now. Try reloading the page.",
+      fallbackDescription: "Standard SponsorBlock category.",
+      items: {
+        sponsor: {
+          label: "Sponsor segments",
+          description: "Paid promotions, ad reads, or sponsored shout-outs.",
+        },
+        selfpromo: {
+          label: "Self promotion",
+          description: "Creator merch plugs, social media callouts, or membership pushes.",
+        },
+        intro: {
+          label: "Intro",
+          description: "Opening animations or sequences before the main content.",
+        },
+        outro: {
+          label: "Outro",
+          description: "Credits, end cards, or wrap-up segments.",
+        },
+        music_offtopic: {
+          label: "Music off-topic",
+          description: "Music performances unrelated to the video's topic.",
+        },
+        interaction: {
+          label: "Engagement prompts",
+          description: "Like/share/subscribe requests or other interaction bumps.",
+        },
+        exclusive_access: {
+          label: "Exclusive content",
+          description: "Promotions for Patreon, paid memberships, or exclusive drops.",
+        },
+        poi_highlight: {
+          label: "Points of interest",
+          description:
+            "Marks a specific point of interest in the video (start and end times are equal). Only valid for POI action types.",
+        },
+        preview: {
+          label: "Previews",
+          description: "Trailers or teasers for upcoming videos.",
+        },
+        filler: {
+          label: "Filler",
+          description: "Waiting rooms, idle chatter, or repeated filler footage.",
+        },
+      },
+    },
+  },
+  stats: {
+    title: "Watching statistics",
+    subtitle: "Totals across every device plus per-device breakdowns.",
+    loading: "Loading stats…",
+    empty: "No statistics collected yet.",
+    global: "Global totals",
+    perDevice: "Per-device statistics",
+    activeDevices: {
+      title: "Active devices ({count})",
+      empty: "No devices are connected right now.",
+    },
+    deviceFilter: "Filter",
+    allDevices: "All devices",
+    selectHint: "Select a specific device above to drill down or inspect the table below.",
+    deviceColumn: "Device",
+    categoryBreakdown: "Skips by category",
+    noCategories: "No segments were skipped yet.",
+    online: "Online",
+    offline: "Offline",
+    metrics: {
+      videos_watched: "Videos watched",
+      watch_time_seconds: "Watch time",
+      segments_skipped: "Segments skipped",
+      time_saved_seconds: "Time saved",
     },
   },
 };

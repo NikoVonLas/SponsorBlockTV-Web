@@ -12,12 +12,14 @@ from appdirs import user_data_dir
 
 from . import main
 from .constants import config_file_blacklist_keys, github_wiki_base_url
+from .device_overrides import sanitize_stored_overrides
 
 
 class Device:
     def __init__(self, args_dict):
         self.screen_id = ""
         self.offset = 0
+        self.overrides: dict[str, Any] = {}
         self.__load(args_dict)
         self.__validate()
 
@@ -26,6 +28,7 @@ class Device:
             setattr(self, i, args_dict[i])
         # Change offset to seconds (from milliseconds)
         self.offset = self.offset / 1000
+        self.overrides = sanitize_stored_overrides(getattr(self, "overrides", {}))
 
     def __validate(self):
         if not self.screen_id:
@@ -161,7 +164,8 @@ class Config:
             CREATE TABLE IF NOT EXISTS devices (
                 screen_id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
-                offset INTEGER NOT NULL
+                offset INTEGER NOT NULL,
+                overrides TEXT DEFAULT '{}'
             )
             """
         )
@@ -180,7 +184,25 @@ class Config:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS stats (
+                device_id TEXT NOT NULL,
+                metric TEXT NOT NULL,
+                value REAL NOT NULL DEFAULT 0,
+                PRIMARY KEY (device_id, metric)
+            )
+            """
+        )
         conn.commit()
+        self._ensure_device_columns(conn)
+
+    def _ensure_device_columns(self, conn: sqlite3.Connection) -> None:
+        cursor = conn.execute("PRAGMA table_info(devices)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "overrides" not in columns:
+            conn.execute("ALTER TABLE devices ADD COLUMN overrides TEXT DEFAULT '{}'")
+            conn.commit()
 
     def _load_from_db(self) -> None:
         with closing(self._connect()) as conn:
@@ -192,13 +214,14 @@ class Config:
             categories = conn.execute("SELECT category FROM skip_categories").fetchall()
             self.skip_categories = [row[0] for row in categories]
             devices = conn.execute(
-                "SELECT screen_id, name, offset FROM devices ORDER BY name COLLATE NOCASE"
+                "SELECT screen_id, name, offset, overrides FROM devices ORDER BY name COLLATE NOCASE"
             ).fetchall()
             self.devices = [
                 {
                     "screen_id": row[0],
                     "name": row[1],
                     "offset": int(row[2]),
+                    "overrides": sanitize_stored_overrides(row[3]),
                 }
                 for row in devices
             ]
@@ -213,7 +236,7 @@ class Config:
                 for row in channels
             ]
 
-    def _serialize_devices(self) -> Iterable[tuple[str, str, int]]:
+    def _serialize_devices(self) -> Iterable[tuple[str, str, int, str]]:
         serialized = []
         for device in self.devices:
             if hasattr(device, "__dict__"):
@@ -222,11 +245,13 @@ class Config:
                 offset_value = getattr(device, "offset", 0) or 0
                 # Device instances store offset in seconds, convert back to ms
                 offset = int(float(offset_value) * 1000)
+                overrides = sanitize_stored_overrides(getattr(device, "overrides", {}))
             else:
                 screen_id = str(device.get("screen_id", "") or "")
                 name = str(device.get("name", "") or "")
                 offset = int(device.get("offset", 0) or 0)
-            serialized.append((screen_id, name, offset))
+                overrides = sanitize_stored_overrides(device.get("overrides", {}))
+            serialized.append((screen_id, name, offset, json.dumps(overrides or {})))
         return serialized
 
     def save(self):
@@ -251,7 +276,7 @@ class Config:
             device_rows = list(self._serialize_devices())
             if device_rows:
                 conn.executemany(
-                    "INSERT INTO devices(screen_id, name, offset) VALUES (?, ?, ?)",
+                    "INSERT INTO devices(screen_id, name, offset, overrides) VALUES (?, ?, ?, ?)",
                     device_rows,
                 )
             conn.execute("DELETE FROM channel_whitelist")
@@ -285,6 +310,9 @@ class Config:
                         int(float(getattr(d, "offset", 0)) * 1000)
                         if hasattr(d, "__dict__")
                         else int(d.get("offset", 0) or 0)
+                    ),
+                    "overrides": sanitize_stored_overrides(
+                        getattr(d, "overrides", d.get("overrides") if isinstance(d, dict) else {})
                     ),
                 }
                 for d in self.devices

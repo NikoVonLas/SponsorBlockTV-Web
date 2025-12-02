@@ -26,7 +26,6 @@ class ApiHelper:
         self.channel_whitelist = config.channel_whitelist
         self.skip_count_tracking = config.skip_count_tracking
         self.web_session = web_session
-        self.num_devices = len(config.devices)
         self.minimum_skip_length = config.minimum_skip_length
 
     # Not used anymore, maybe it can stay here a little longer
@@ -103,7 +102,7 @@ class ApiHelper:
                 sub_count = "Hidden"
             else:
                 sub_count = int(channel_data["items"][0]["statistics"]["subscriberCount"])
-                sub_count = format(sub_count, "_")
+                sub_count = f"{sub_count:,}".replace(",", " ")
 
             channels.append((i["snippet"]["channelId"], i["snippet"]["channelTitle"], sub_count))
         return channels
@@ -143,6 +142,14 @@ class ApiHelper:
         return self.process_segments(response_json, self.minimum_skip_length)
 
     @staticmethod
+    def _extract_categories(raw):
+        if raw is None:
+            return []
+        if isinstance(raw, (list, tuple, set)):
+            return [str(item) for item in raw if item]
+        return [str(raw)]
+
+    @staticmethod
     def process_segments(response, minimum_skip_length):
         segments = []
         ignore_ttl = True
@@ -170,12 +177,19 @@ class ApiHelper:
                 )  # If all segments are locked, ignore ttl
                 segment = i["segment"]
                 UUID = i["UUID"]
-                segment_dict = {"start": segment[0], "end": segment[1], "UUID": [UUID]}
+                categories = set(ApiHelper._extract_categories(i.get("category")))
+                segment_dict = {
+                    "start": segment[0],
+                    "end": segment[1],
+                    "UUID": [UUID],
+                    "categories": categories,
+                }
                 try:
                     # Get segment before to check if they are too close to each other
                     segment_before_end = segments[-1]["end"]
                     segment_before_start = segments[-1]["start"]
                     segment_before_UUID = segments[-1]["UUID"]
+                    segment_before_categories = segments[-1].get("categories", set())
 
                 except IndexError:
                     segment_before_end = -10
@@ -184,9 +198,11 @@ class ApiHelper:
                 ):  # Less than 1 second apart, combine them and skip them together
                     segment_dict["start"] = segment_before_start
                     segment_dict["UUID"].extend(segment_before_UUID)
+                    segment_dict["categories"].update(segment_before_categories)
                     segments.pop()
                 # Only add segments greater than minimum skip length
                 if segment_dict["end"] - segment_dict["start"] > minimum_skip_length:
+                    segment_dict["categories"] = list(segment_dict["categories"])
                     segments.append(segment_dict)
         except BaseException:
             pass

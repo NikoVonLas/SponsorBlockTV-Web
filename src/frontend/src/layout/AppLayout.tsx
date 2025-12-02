@@ -6,6 +6,7 @@ import { useTranslation, type TranslationKey } from "../i18n";
 import { LanguageSwitcher } from "../i18n/LanguageSwitcher";
 
 const navItems: { to: string; labelKey: TranslationKey }[] = [
+  { to: "/stats", labelKey: "app.nav.stats" },
   { to: "/devices", labelKey: "app.nav.devices" },
   { to: "/channels", labelKey: "app.nav.channels" },
   { to: "/config", labelKey: "app.nav.config" },

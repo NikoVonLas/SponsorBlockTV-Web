@@ -26,7 +26,9 @@ from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 from litestar.params import Parameter
 from pydantic import BaseModel, Field, field_validator
 
-from . import api_helpers, constants, ytlounge
+from . import api_helpers, constants, stats, ytlounge
+import time
+from .device_overrides import merge_overrides, normalize_overrides, sanitize_stored_overrides
 from .helpers import Config
 
 logger = logging.getLogger(__name__)
@@ -303,10 +305,62 @@ class JWTAuthMiddleware:
         await send({"type": "http.response.body", "body": body})
 
 
+class DeviceAutomationOverrides(BaseModel):
+    skip_ads: Optional[bool] = None
+    mute_ads: Optional[bool] = None
+    skip_count_tracking: Optional[bool] = None
+    auto_play: Optional[bool] = None
+
+
+class ChannelOverrideEntry(BaseModel):
+    id: str = Field(min_length=1)
+    name: Optional[str] = None
+
+    @field_validator("id")
+    @classmethod
+    def validate_id(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Channel id cannot be empty")
+        return value
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        value = value.strip()
+        return value or None
+
+
+class DeviceOverridesPayload(BaseModel):
+    automation: Optional[DeviceAutomationOverrides] = None
+    skip_categories: Optional[list[str]] = None
+    channel_whitelist: Optional[list[ChannelOverrideEntry]] = None
+
+    @field_validator("skip_categories")
+    @classmethod
+    def validate_skip_categories(cls, value: Optional[list[str]]) -> Optional[list[str]]:
+        if value is None:
+            return value
+        available_values = {item[1] for item in constants.skip_categories}
+        invalid = [category for category in value if category not in available_values]
+        if invalid:
+            raise ValueError(f"Invalid skip categories: {', '.join(invalid)}")
+        return value
+
+
+class DeviceOverridesModel(BaseModel):
+    automation: Optional[DeviceAutomationOverrides] = None
+    skip_categories: Optional[list[str]] = None
+    channel_whitelist: Optional[list["ChannelModel"]] = None
+
+
 class DeviceCreateRequest(BaseModel):
     screen_id: str = Field(min_length=1)
     name: Optional[str] = None
     offset: int = Field(default=0, ge=0)
+    overrides: Optional["DeviceOverridesPayload"] = None
 
     @field_validator("screen_id")
     @classmethod
@@ -329,12 +383,14 @@ class DeviceModel(BaseModel):
     screen_id: str = Field(min_length=1)
     name: str = Field(min_length=1)
     offset: int = Field(default=0, ge=0)
+    overrides: Optional["DeviceOverridesModel"] = None
 
 
 class DeviceUpdateModel(BaseModel):
     screen_id: Optional[str] = Field(default=None)
     name: Optional[str] = Field(default=None)
     offset: Optional[int] = Field(default=None, ge=0)
+    overrides: Optional["DeviceOverridesPayload"] = None
 
     @field_validator("screen_id")
     @classmethod
@@ -378,9 +434,26 @@ class PairDeviceRequest(BaseModel):
         return value or None
 
 
+class DeviceStatsModel(BaseModel):
+    screen_id: str
+    name: str
+    metrics: dict[str, float]
+    online: bool = False
+
+
+class StatsResponse(BaseModel):
+    global_metrics: dict[str, float]
+    devices: list[DeviceStatsModel]
+    category_breakdown: dict[str, float]
+
+
 class ChannelModel(BaseModel):
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
+
+
+DeviceOverridesModel.model_rebuild()
+DeviceModel.model_rebuild()
 
 
 class ChannelAddRequest(BaseModel):
@@ -483,11 +556,40 @@ def _normalize_name(name: Optional[str], fallback: str) -> str:
     return fallback
 
 
+def _serialize_device_overrides(device: dict[str, Any]) -> Optional[DeviceOverridesModel]:
+    overrides = sanitize_stored_overrides(device.get("overrides"))
+    if not overrides:
+        return None
+    automation = overrides.get("automation")
+    skip_categories = overrides.get("skip_categories")
+    channel_whitelist = overrides.get("channel_whitelist")
+    automation_model = (
+        DeviceAutomationOverrides(**automation)
+        if isinstance(automation, dict) and automation
+        else None
+    )
+    whitelist_models = (
+        [
+            _serialize_channel(copy.deepcopy(channel))
+            for channel in channel_whitelist
+            if isinstance(channel, dict)
+        ]
+        if channel_whitelist is not None
+        else None
+    )
+    return DeviceOverridesModel(
+        automation=automation_model,
+        skip_categories=list(skip_categories) if skip_categories is not None else None,
+        channel_whitelist=whitelist_models,
+    )
+
+
 def _serialize_device(device: dict[str, Any]) -> DeviceModel:
     screen_id = str(device.get("screen_id", "") or "")
     name = _normalize_name(device.get("name"), screen_id or "Unnamed device")
     offset = int(device.get("offset", 0) or 0)
-    return DeviceModel(screen_id=screen_id, name=name, offset=offset)
+    overrides = _serialize_device_overrides(device)
+    return DeviceModel(screen_id=screen_id, name=name, offset=offset, overrides=overrides)
 
 
 def _serialize_channel(channel: dict[str, Any]) -> ChannelModel:
@@ -591,6 +693,7 @@ class ApiState:
                 "screen_id": lounge_controller.auth.screen_id,
                 "name": device_name,
                 "offset": 0,
+                "overrides": {},
             }
             if any(d.get("screen_id") == device_data["screen_id"] for d in self.config.devices):
                 raise ValueError("Device already exists")
@@ -701,6 +804,14 @@ async def list_devices(request: Request) -> list[DeviceModel]:
 async def add_device(request: Request, data: DeviceCreateRequest) -> DeviceModel:
     state = await _get_state(request)
 
+    overrides_data: dict[str, Any] = {}
+    if data.overrides is not None:
+        overrides_payload = data.overrides.model_dump(exclude_unset=True)
+        try:
+            overrides_data = normalize_overrides(overrides_payload)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     def mutate(config: Config) -> DeviceModel:
         if any(d.get("screen_id") == data.screen_id for d in config.devices):
             raise ValueError("Device with this screen_id already exists")
@@ -708,6 +819,7 @@ async def add_device(request: Request, data: DeviceCreateRequest) -> DeviceModel
             "screen_id": data.screen_id,
             "name": _normalize_name(data.name, data.screen_id),
             "offset": int(data.offset),
+            "overrides": overrides_data,
         }
         config.devices.append(device)
         return _serialize_device(device)
@@ -723,6 +835,11 @@ async def add_device(request: Request, data: DeviceCreateRequest) -> DeviceModel
 async def update_device(request: Request, screen_id: str, data: DeviceUpdateModel) -> DeviceModel:
     state = await _get_state(request)
 
+    overrides_present = "overrides" in data.model_fields_set
+    overrides_patch: dict[str, Any] | None = None
+    if overrides_present and data.overrides is not None:
+        overrides_patch = data.overrides.model_dump(exclude_unset=False)
+
     def mutate(config: Config) -> DeviceModel:
         for device in config.devices:
             if device.get("screen_id") == screen_id:
@@ -736,6 +853,16 @@ async def update_device(request: Request, screen_id: str, data: DeviceUpdateMode
                     device["name"] = _normalize_name(data.name, new_screen_id)
                 if data.offset is not None:
                     device["offset"] = int(data.offset)
+                if overrides_present:
+                    if data.overrides is None:
+                        device["overrides"] = {}
+                    else:
+                        try:
+                            device["overrides"] = merge_overrides(
+                                device.get("overrides"), overrides_patch
+                            )
+                        except ValueError as exc:
+                            raise HTTPException(status_code=400, detail=str(exc)) from exc
                 return _serialize_device(device)
         raise LookupError("Device not found")
 
@@ -824,6 +951,55 @@ async def add_channel(request: Request, data: ChannelAddRequest) -> ChannelModel
     return channel
 
 
+@api_get("/stats", tags=["Stats"])
+async def get_stats_endpoint(request: Request) -> StatsResponse:
+    state = await _get_state(request)
+    config_snapshot = await state.get_config_snapshot()
+    device_name_map = {
+        device.screen_id: device.name or device.screen_id for device in config_snapshot.devices
+    }
+    stats_map = stats.load_all_stats(state.config.data_dir)
+    global_metrics = stats_map.get(stats.GLOBAL_DEVICE_ID, {})
+    category_breakdown: dict[str, float] = {}
+    for metric, value in global_metrics.items():
+        if metric.startswith("skip_category_"):
+            category = metric.replace("skip_category_", "", 1)
+            category_breakdown[category] = value
+    devices: list[DeviceStatsModel] = []
+    now = time.time()
+    for key, metrics in stats_map.items():
+        if key == stats.GLOBAL_DEVICE_ID:
+            continue
+        metrics_copy = dict(metrics)
+        last_seen = metrics_copy.pop("last_seen", None)
+        online = bool(last_seen and (now - last_seen) < 90)
+        device_name = device_name_map.get(key, key)
+        devices.append(
+            DeviceStatsModel(screen_id=key, name=device_name, metrics=metrics_copy, online=online)
+        )
+    devices.sort(key=lambda item: item.screen_id.lower())
+    return StatsResponse(
+        global_metrics=global_metrics,
+        devices=devices,
+        category_breakdown=category_breakdown,
+    )
+
+
+@api_get("/stats/devices/{screen_id:str}", tags=["Stats"])
+async def get_device_stats_endpoint(request: Request, screen_id: str) -> DeviceStatsModel:
+    state = await _get_state(request)
+    config_snapshot = await state.get_config_snapshot()
+    device_name_map = {
+        device.screen_id: device.name or device.screen_id for device in config_snapshot.devices
+    }
+    stats_map = stats.load_device_stats(state.config.data_dir, screen_id)
+    metrics = dict(stats_map.get(screen_id, {}))
+    last_seen = metrics.pop("last_seen", None)
+    online = bool(last_seen and (time.time() - last_seen) < 90)
+    device_name = device_name_map.get(screen_id, screen_id)
+    return DeviceStatsModel(screen_id=screen_id, name=device_name, metrics=metrics, online=online)
+
+
 @api_delete("/channels/{channel_id:str}", status_code=HTTP_204_NO_CONTENT, tags=["Channels"])
 async def remove_channel(request: Request, channel_id: str) -> None:
     state = await _get_state(request)
@@ -896,6 +1072,8 @@ def create_app(data_dir: str, *, debug: bool = False) -> Litestar | FrontendApp:
         add_channel,
         remove_channel,
         search_channels,
+        get_stats_endpoint,
+        get_device_stats_endpoint,
     ]
 
     docs_enabled = _docs_enabled()
@@ -926,5 +1104,6 @@ __all__ = [
     "create_app",
     "ConfigResponse",
     "DeviceModel",
+    "DeviceOverridesModel",
     "ChannelModel",
 ]

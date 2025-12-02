@@ -18,6 +18,7 @@ import type {
   DeviceUpdateRequest,
   PairDeviceRequest,
   SkipCategoryOption,
+  StatsResponse,
 } from "./types";
 
 const useAuthedRequest = () => {
@@ -205,5 +206,14 @@ export const useChannelSearchMutation = (): UseMutationResult<
   return useMutation<ChannelSearchResult[], ApiError, string>({
     mutationFn: (query) =>
       request(`/channels/search?query=${encodeURIComponent(query)}`),
+  });
+};
+
+export const useStatsQuery = () => {
+  const request = useAuthedRequest();
+  return useQuery<StatsResponse, ApiError>({
+    queryKey: ["stats"],
+    queryFn: () => request("/stats"),
+    refetchInterval: 30_000,
   });
 };

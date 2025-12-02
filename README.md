@@ -34,7 +34,7 @@ Notes:
 
 - The compose file defaults to `network_mode: host` so SSDP discovery works. On
   macOS/Windows (or if you don’t need multicast) remove that line and add
-  `ports: ["80:8000"]`.
+  `ports: ["80:80"]`.
 - Configuration lives in the `sbtv_data` named volume. Swap it for a bind mount
   (e.g., `- ./data:/app/data`) if you want files on the host filesystem.
 
@@ -54,7 +54,7 @@ docker run -d \
   ghcr.io/nikovonlas/sponsorblocktv-web:latest
 ```
 
-Use `-p 80:8000` instead of `--network host` if host networking is
+Use `-p 80:80` instead of `--network host` if host networking is
 unavailable.
 
 ### Environment Variables
@@ -87,6 +87,13 @@ When the service is running, open `http://<host>/` to reach the React dashboard.
 All API calls originate from the same origin and target `/api/...`, so you only
 need a single exposed port.
 
+### Statistics
+
+The **Stats** tab (and the `/api/stats` endpoint) exposes aggregate viewing
+metrics: videos started, total watch time, number of skipped segments, and the
+time saved by SponsorBlock jumps. Select a device to drill down or keep the
+global view for overall totals.
+
 ### CLI & API
 
 The packaged CLI (`sponsorblocktv-web`) exposes the same configuration controls
@@ -97,9 +104,6 @@ sponsorblocktv-web --data ./data start          # run automation service
 sponsorblocktv-web --data ./data api            # run Litestar API (default 80)
 sponsorblocktv-web --help                       # see all CLI flags/options
 ```
-
-The Litestar API powers the web UI and can be accessed directly at `/api/...`.
-Authenticate via `POST /api/auth/login` using the `SBTV_AUTH_*` credentials.
 
 ## Known Limitations
 

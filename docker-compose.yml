@@ -1,17 +1,20 @@
 services:
   sponsorblocktv-web:
-    image: nikovonlas/sponsorblocktv-web:latest
+    build:
+      context: .
     # Uncomment next line if you want to use auto discovery
     # network_mode: host
     # Comment next two lines if you want to use auto discovery
     ports:
-      - 80
+      - 80:80
     environment:
       SBTV_DOCKER: true
       SBTV_JWT_SECRET: change-me
       SBTV_AUTH_USERNAME: admin
       SBTV_AUTH_PASSWORD: admin
-      SBTV_ENABLE_DOCS: false
+      SBTV_ENABLE_DOCS: true
+      SBTV_DEBUG: true
+      SBTV_HTTP_TRACING: true
     restart: unless-stopped
     volumes:
       - sbtv_data:/app/data
